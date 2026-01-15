@@ -61,11 +61,11 @@ const SUBCATEGORY_KEYWORDS = {
 };
 
 /**
- * Check if product name contains inappropriate keywords
+ * Check if product name OR description contains inappropriate keywords
  */
-function isInappropriate(name) {
-  const lowerName = name.toLowerCase();
-  return EXCLUDED_KEYWORDS.some(kw => lowerName.includes(kw));
+function isInappropriate(name, description = '') {
+  const textToCheck = (name + ' ' + description).toLowerCase();
+  return EXCLUDED_KEYWORDS.some(kw => textToCheck.includes(kw));
 }
 
 function detectSubcategory(name) {
@@ -184,77 +184,66 @@ function parseDescription(descStr) {
   
   if (!rawDetails) return null;
   
-  // Clean up the description:
-  // The raw format is: "[Category] by [Brand][Tagline][Features]Product Code: XXX"
-  // Example: "Coats & Jackets by Nike RunningHit that new PBToggle hoodZip fastening...Product Code: 123"
-  
   let cleaned = rawDetails;
   
-  // 1. Remove "Product Code: XXXXX" suffix first
+  // 1. Remove "Product Code: XXXXX" suffix
   cleaned = cleaned.replace(/Product Code:\s*\d+['"]?$/, '').trim();
   
-  // 2. Remove "[Category] by [Brand]" prefix
-  // The pattern ends where actual content starts - look for common feature/tagline starters
-  // Features start with words like: Toggle, Zip, Button, Spread, Notch, Regular, Relaxed, Side, etc.
-  // Taglines are short catchy phrases
+  // 2. Remove common filler phrases
+  cleaned = cleaned.replace(/Exclusive to ASOS/gi, ' ');
+  cleaned = cleaned.replace(/Part of a co-ord/gi, ' ');
+  cleaned = cleaned.replace(/Sold separately/gi, '');
   
-  // First, try to find where the brand name ends and content begins
-  // Pattern: "[anything] by [BrandWords]" followed by actual content
-  // Brand words end when we hit a known feature starter or tagline pattern
+  // 3. Remove "[Category] by [Brand]" prefix - everything up to first real feature
+  // Strategy: Find " by " and then look for where actual features start
+  // Features are things like: "Toggle hood", "Zip fastening", "High collar", etc.
   
-  const featureStarters = [
-    // Common feature words
-    'Toggle', 'Zip', 'Button', 'Spread', 'Notch', 'Regular', 'Relaxed', 'Oversized', 
-    'Side', 'Front', 'Back', 'High', 'Low', 'V-neck', 'Crew', 'Round', 'Square',
-    'Long', 'Short', 'Cropped', 'Fitted', 'Loose', 'Slim', 'Wide', 'Narrow',
-    'Classic', 'Modern', 'Vintage', 'Retro',
-    // Tagline starters (catchy phrases)
-    'Hit', 'Love', 'Throw', 'Get', 'Make', 'Take', 'Your', 'The', 'That', 'This',
-    'New', 'Fresh', 'Cool', 'Warm', 'Soft', 'Bold', 'Sleek',
-    // Feature descriptions
-    'Hooded', 'Belted', 'Quilted', 'Padded', 'Lined', 'Unlined',
+  // Known feature starters (full words that start product features)
+  const featurePatterns = [
+    /Toggle\s/i, /Zip\s/i, /Button\s/i, /High\s/i, /Low\s/i, /Spread\s/i, /Notch\s/i,
+    /Regular\sfit/i, /Relaxed\sfit/i, /Oversized\sfit/i, /Slim\sfit/i,
+    /Side\s/i, /Front\s/i, /Functional\s/i, /Logo\s/i,
+    /Hit\sthat/i, /Love\sat/i, /Throw\son/i, /Jacket\supgrade/i, /That\snew/i,
+    /The\sdenim/i, /Welcome\sto/i, /Mid-season/i, /Motor\sracing/i,
+    /V-neck/i, /Crew\sneck/i, /Round\sneck/i, /Square\sneck/i,
+    /Glitter\s/i, /Metallic\s/i, /Striped\s/i, /Floral\s/i,
   ];
   
-  // Find the position where content starts (after "by [Brand]")
+  // Find " by " and remove everything before the first feature
   const byMatch = cleaned.match(/\sby\s/i);
   if (byMatch && byMatch.index !== undefined) {
-    const afterBy = cleaned.substring(byMatch.index + 4); // Skip " by "
+    const afterBy = cleaned.substring(byMatch.index + 4);
     
-    // Find where actual content starts - look for first feature starter
-    for (const starter of featureStarters) {
-      const starterPos = afterBy.indexOf(starter);
-      if (starterPos !== -1 && starterPos < 50) { // Must be within first 50 chars after brand
-        cleaned = afterBy.substring(starterPos);
-        break;
+    // Find earliest feature match
+    let earliestPos = afterBy.length;
+    for (const pattern of featurePatterns) {
+      const match = afterBy.match(pattern);
+      if (match && match.index !== undefined && match.index < earliestPos) {
+        earliestPos = match.index;
       }
     }
     
-    // If no feature starter found, try to find first capital letter after some lowercase
-    // (brand names are usually all caps or Title Case, content starts fresh)
-    if (cleaned === rawDetails || cleaned.startsWith('y ')) {
-      const contentMatch = afterBy.match(/[a-z]{2,}([A-Z][a-z])/);
-      if (contentMatch && contentMatch.index !== undefined) {
-        cleaned = afterBy.substring(contentMatch.index + contentMatch[0].length - 2);
+    if (earliestPos < afterBy.length) {
+      cleaned = afterBy.substring(earliestPos);
+    } else {
+      // Fallback: remove just the "X by Brand" part, keep everything after first Capital after lowercase
+      const transitionMatch = afterBy.match(/[a-z]([A-Z][a-z]{2,})/);
+      if (transitionMatch && transitionMatch.index !== undefined) {
+        cleaned = afterBy.substring(transitionMatch.index + 1);
       }
     }
   }
   
-  // 3. Add periods between smooshed features
-  // "TogglehoodZipfastening" -> "Toggle hood. Zip fastening"
+  // 4. Add periods between smooshed words (camelCase -> sentences)
+  // Also handle uppercase followed by uppercase+lowercase (e.g., "PBToggle" -> "PB. Toggle")
   cleaned = cleaned.replace(/([a-z])([A-Z])/g, '$1. $2');
-  
-  // 4. Fix common word breaks
-  cleaned = cleaned
-    .replace(/\bfit\./gi, 'fit.')
-    .replace(/\bcollar\./gi, 'collar.')
-    .replace(/\bpockets\./gi, 'pockets.')
-    .replace(/\bhem\./gi, 'hem.')
-    .replace(/\bdetails\./gi, 'details.');
+  cleaned = cleaned.replace(/([A-Z]{2,})([A-Z][a-z])/g, '$1. $2');
   
   // 5. Clean up spacing and punctuation
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
   cleaned = cleaned.replace(/\.\s*\./g, '.');
-  cleaned = cleaned.replace(/^\.\s*/, ''); // Remove leading period
+  cleaned = cleaned.replace(/^\.\s*/, '');
+  cleaned = cleaned.replace(/^[,.\s]+/, '');
   
   // 6. Ensure proper ending
   if (cleaned && !cleaned.endsWith('.') && !cleaned.endsWith('!') && !cleaned.endsWith('?')) {
@@ -318,9 +307,6 @@ async function extractProducts() {
     const name = parsed.name.trim();
     if (!name || name.length < 10 || seenNames.has(name.toLowerCase())) continue;
     
-    // Skip inappropriate items
-    if (isInappropriate(name)) continue;
-    
     // Detect subcategory
     const subcategory = detectSubcategory(name);
     if (!subcategory) continue;
@@ -335,6 +321,9 @@ async function extractProducts() {
     
     // Parse description
     const productDescription = parseDescription(parsed.description);
+    
+    // Skip inappropriate items (check name AND raw description)
+    if (isInappropriate(name, parsed.description || '')) continue;
     
     // Clean color
     let color = parsed.color?.trim() || 'Multi';
