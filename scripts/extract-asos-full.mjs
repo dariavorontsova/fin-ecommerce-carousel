@@ -14,10 +14,18 @@ const TARGET_SUBCATEGORIES = {
   'jumpers': 15, 'cardigans': 10, 'hoodies': 15, 'sweatshirts': 12,
   'dresses': 20, 'skirts': 12,
   'jeans': 15, 'trousers': 15, 'shorts': 10,
-  'trainers': 15, 'boots': 15, 'loafers': 8, 'flats': 8,
+  'trainers': 15, 'boots': 15, 'heels': 10, 'sandals': 10, 'loafers': 8, 'flats': 8,
   'bags': 15, 'backpacks': 8, 'scarves': 8, 'hats': 8, 'belts': 6, 'sunglasses': 6, 'jewellery': 8,
-  // Excluded for work: swimwear, lingerie, heels, sandals, leggings
+  // Excluded: swimwear, lingerie/underwear, leggings
 };
+
+// Words that make items inappropriate for work
+const EXCLUDED_KEYWORDS = [
+  'mini skirt', 'miniskirt', 'mini dress', 'minidress',
+  'bikini', 'swimsuit', 'swim short', 'swimwear',
+  'bra ', 'bralette', 'brief', 'thong', 'knicker', 'underwear', 'lingerie',
+  'bodycon', 'cut-out', 'cutout', 'plunge', 'low cut',
+];
 
 const SUBCATEGORY_KEYWORDS = {
   'jackets': ['jacket', 'bomber', 'biker', 'puffer'],
@@ -39,6 +47,8 @@ const SUBCATEGORY_KEYWORDS = {
   'shorts': ['shorts', 'short '],
   'trainers': ['trainer', 'sneaker', 'running shoe'],
   'boots': ['boot', 'chelsea'],
+  'heels': ['heel', 'stiletto', 'court shoe', 'pump'],
+  'sandals': ['sandal', 'slider', 'flip flop'],
   'loafers': ['loafer', 'moccasin'],
   'flats': ['flat', 'ballet', 'ballerina'],
   'bags': ['bag', 'tote', 'clutch', 'purse', 'handbag', 'satchel'],
@@ -48,8 +58,15 @@ const SUBCATEGORY_KEYWORDS = {
   'belts': ['belt'],
   'sunglasses': ['sunglasses', 'sunnies'],
   'jewellery': ['necklace', 'bracelet', 'earring', 'ring ', 'chain', 'pendant'],
-  // Excluded: swimwear, lingerie, heels, sandals, leggings
 };
+
+/**
+ * Check if product name contains inappropriate keywords
+ */
+function isInappropriate(name) {
+  const lowerName = name.toLowerCase();
+  return EXCLUDED_KEYWORDS.some(kw => lowerName.includes(kw));
+}
 
 function detectSubcategory(name) {
   const lowerName = name.toLowerCase();
@@ -300,6 +317,9 @@ async function extractProducts() {
     
     const name = parsed.name.trim();
     if (!name || name.length < 10 || seenNames.has(name.toLowerCase())) continue;
+    
+    // Skip inappropriate items
+    if (isInappropriate(name)) continue;
     
     // Detect subcategory
     const subcategory = detectSubcategory(name);
