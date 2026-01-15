@@ -26,40 +26,51 @@ export function ProductCard({
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: product.currency,
+      minimumFractionDigits: 2,
+    }).format(price);
+  };
+
+  // Compact price format (no decimals if whole number)
+  const formatPriceCompact = (price: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: product.currency,
       minimumFractionDigits: price % 1 === 0 ? 0 : 2,
     }).format(price);
   };
 
-  // Get badge info
+  // Get badge info - using consistent frosted glass style
   const getBadge = () => {
     if (!product.tags?.length) return null;
-    if (product.tags.includes('sale')) return { text: 'Sale', color: 'bg-red-500' };
-    if (product.tags.includes('new')) return { text: 'New', color: 'bg-neutral-900' };
-    if (product.tags.includes('bestseller')) return { text: 'Best Seller', color: 'bg-amber-500' };
-    if (product.tags.includes('limited')) return { text: 'Limited', color: 'bg-purple-500' };
-    if (product.tags.includes('eco-friendly')) return { text: 'Eco', color: 'bg-green-500' };
+    if (product.tags.includes('sale')) return { text: 'Sale' };
+    if (product.tags.includes('new')) return { text: 'New' };
+    if (product.tags.includes('bestseller')) return { text: 'Best Seller' };
+    if (product.tags.includes('limited')) return { text: 'Limited' };
+    if (product.tags.includes('eco-friendly')) return { text: 'Eco' };
     return null;
   };
 
-  // Get variant text
-  const getVariantText = () => {
-    if (!product.variants?.length) return null;
-    const variant = product.variants[0];
-    return `${variant.options.length} ${variant.type}s available`;
-  };
-
   const badge = getBadge();
-  const variantText = getVariantText();
 
-  // AI Reasoning Mode - shows LLM-generated pitch instead of metadata
+  // Card hover shadow - Figma: two drop shadows
+  const hoverShadow = '0px 1px 4px rgba(9, 14, 21, 0.06), 0px 4px 28px rgba(9, 14, 21, 0.06)';
+
+  // AI Reasoning Mode - Figma spec
   if (aiReasoningMode) {
+    const isCompactMode = variant === 'compact';
     return (
       <div 
-        className="bg-white rounded-card border border-neutral-200 overflow-hidden hover:border-neutral-300 hover:shadow-card transition-all cursor-pointer flex-shrink-0 w-[200px] min-w-[200px]"
+        className={`bg-white overflow-clip cursor-pointer flex-shrink-0 transition-shadow ${isCompactMode ? 'w-[200px] min-w-[200px]' : 'w-full'}`}
+        style={{
+          border: '1px solid rgba(9, 14, 21, 0.1)',
+          borderRadius: '20px',
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.boxShadow = hoverShadow}
+        onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
         onClick={handleClick}
       >
-        {/* Image */}
-        <div className="relative bg-neutral-50 h-[160px]">
+        {/* Image - always 200px height */}
+        <div className="relative h-[200px] w-full overflow-hidden">
           <img 
             src={product.image} 
             alt={product.name}
@@ -67,22 +78,28 @@ export function ProductCard({
           />
         </div>
 
-        {/* AI Reasoning Content */}
-        <div className="p-3">
-          {/* AI-generated pitch */}
-          <p className="text-neutral-800 text-sm leading-relaxed font-medium">
+        {/* Content - Figma: px-16, pt-14, pb-16, gap-12 */}
+        <div className="flex flex-col gap-3" style={{ padding: '14px 16px 16px 16px' }}>
+          {/* AI-generated pitch - 14px, line-height 1.3, #14161a, max 3 lines */}
+          <p 
+            className="overflow-hidden line-clamp-3"
+            style={{ 
+              fontSize: '14px', 
+              lineHeight: '1.3', 
+              color: '#14161a',
+            }}
+          >
             {product.aiReasoning || generateMockReasoning(product)}
           </p>
           
-          {/* Minimal metadata: price + name */}
-          <div className="flex items-center gap-2 mt-3 pt-2 border-t border-neutral-100">
-            <span className="text-neutral-500 text-sm">
-              {formatPrice(product.price)}
-            </span>
-            <span className="text-neutral-300">•</span>
-            <span className="text-neutral-500 text-sm truncate">
-              {product.name}
-            </span>
+          {/* Price + Name row - 13px, #6c6f74 */}
+          <div 
+            className="flex items-start gap-1"
+            style={{ fontSize: '13px', lineHeight: '1.5', color: '#6c6f74' }}
+          >
+            <span className="shrink-0">{formatPriceCompact(product.price)}</span>
+            <span className="shrink-0">•</span>
+            <span className="truncate flex-1 min-w-0">{product.name}</span>
           </div>
         </div>
       </div>
@@ -93,54 +110,81 @@ export function ProductCard({
   if (variant === 'list') {
     return (
       <div 
-        className="flex gap-3 p-3 bg-white rounded-card border border-neutral-200 hover:border-neutral-300 transition-colors cursor-pointer flex-shrink-0"
+        className="flex gap-3 bg-white cursor-pointer flex-shrink-0 transition-shadow"
+        style={{
+          padding: '12px',
+          border: '1px solid rgba(9, 14, 21, 0.1)',
+          borderRadius: '16px',
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.boxShadow = hoverShadow}
+        onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
         onClick={handleClick}
       >
         {/* Thumbnail */}
         {config.showImage && (
-          <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-neutral-50">
+          <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden">
             <img 
               src={product.image} 
               alt={product.name}
               className="w-full h-full object-cover"
             />
             {config.showPromoBadge && badge && (
-              <span className={`absolute top-1 left-1 px-1.5 py-0.5 text-[10px] font-medium text-white rounded ${badge.color}`}>
-                {badge.text}
-              </span>
+              <div 
+                className="absolute flex items-center justify-center"
+                style={{
+                  top: '4px',
+                  left: '4px',
+                  padding: '1px 4px',
+                  borderRadius: '4px',
+                  backgroundColor: 'rgba(9, 14, 21, 0.7)',
+                  backdropFilter: 'blur(10px)',
+                }}
+              >
+                <span style={{ fontSize: '9px', fontWeight: 500, color: '#ffffff' }}>
+                  {badge.text}
+                </span>
+              </div>
             )}
           </div>
         )}
 
         {/* Content */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
           {config.showTitle && (
-            <h3 className="font-medium text-neutral-900 text-sm truncate">
+            <h3 
+              className="font-semibold truncate"
+              style={{ fontSize: '14px', lineHeight: '1.5', color: '#14161a' }}
+            >
               {product.name}
             </h3>
           )}
           
           {config.showDescription && (
-            <p className="text-neutral-500 text-xs line-clamp-2 mt-0.5">
+            <p 
+              className="line-clamp-2"
+              style={{ fontSize: '13px', lineHeight: 'normal', color: '#6c6f74' }}
+            >
               {product.description}
             </p>
           )}
 
           {config.showRating && (
             <div className="flex items-center gap-1 mt-1">
-              <span className="text-amber-500 text-xs">★</span>
-              <span className="text-xs text-neutral-700">{product.rating}</span>
-              <span className="text-xs text-neutral-400">({product.reviewCount})</span>
+              <div className="flex items-center gap-0.5">
+                <img src="/src/components/icons/star-full.svg" alt="" className="w-3 h-3" />
+                <span style={{ fontSize: '13px', fontWeight: 500, color: '#14161a' }}>{product.rating}</span>
+              </div>
+              <span style={{ fontSize: '13px', color: '#6c6f74' }}>({product.reviewCount})</span>
             </div>
           )}
 
           {config.showPrice && (
             <div className="flex items-center gap-2 mt-1">
-              <span className="font-semibold text-neutral-900 text-sm">
+              <span style={{ fontSize: '14px', fontWeight: 600, color: '#14161a' }}>
                 {formatPrice(product.price)}
               </span>
               {product.originalPrice && (
-                <span className="text-neutral-400 text-xs line-through">
+                <span className="line-through" style={{ fontSize: '13px', color: '#6c6f74' }}>
                   {formatPrice(product.originalPrice)}
                 </span>
               )}
@@ -151,99 +195,125 @@ export function ProductCard({
     );
   }
 
-  // Default and compact card layout
+  // Default and compact card layout - Figma specs
   const isCompact = variant === 'compact';
   
   return (
     <div 
-      className={`
-        bg-white rounded-card border border-neutral-200 overflow-hidden
-        hover:border-neutral-300 hover:shadow-card transition-all cursor-pointer
-        flex-shrink-0
-        ${isCompact ? 'w-[160px] min-w-[160px]' : 'w-[180px] min-w-[180px]'}
-      `}
+      className={`bg-white overflow-clip cursor-pointer transition-shadow ${isCompact ? 'flex-shrink-0 w-[200px] min-w-[200px]' : 'w-full'}`}
+      style={{
+        border: '1px solid rgba(9, 14, 21, 0.1)',
+        borderRadius: '20px',
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.boxShadow = hoverShadow}
+      onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
       onClick={handleClick}
     >
-      {/* Image Container */}
-      {config.showImage && (
-        <div className={`relative bg-neutral-50 ${isCompact ? 'h-[120px]' : 'h-[140px]'}`}>
+      {/* Image Container - Figma: always 200px height */}
+      <div className="relative h-[200px] w-full">
+        {config.showImage && (
           <img 
             src={product.image} 
             alt={product.name}
             className="w-full h-full object-cover"
           />
-          
-          {/* Price overlay (optional placement) */}
-          {config.showPrice && (
-            <div className="absolute bottom-2 left-2 bg-white/95 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm">
-              <span className="font-semibold text-neutral-900 text-sm">
-                {formatPrice(product.price)}
-              </span>
-            </div>
-          )}
-
-          {/* Badge */}
-          {config.showPromoBadge && badge && (
-            <span className={`absolute top-2 left-2 px-2 py-0.5 text-xs font-medium text-white rounded ${badge.color}`}>
-              {badge.text}
-            </span>
-          )}
-
-          {/* Quick action icon (compact view) */}
-          {config.showViewDetailsCompact && (
-            <button 
-              className="absolute top-2 right-2 w-7 h-7 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm hover:bg-white transition-colors"
-              onClick={(e) => { e.stopPropagation(); handleClick(); }}
-            >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M4 10L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                <path d="M5 4H10V9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Content */}
-      <div className={`p-3 ${isCompact ? 'p-2' : 'p-3'}`}>
-        {config.showTitle && (
-          <h3 className={`font-medium text-neutral-900 truncate ${isCompact ? 'text-xs' : 'text-sm'}`}>
-            {product.name}
-          </h3>
         )}
-
-        {config.showRating && (
-          <div className="flex items-center gap-1 mt-1">
-            <div className="flex">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <span 
-                  key={star} 
-                  className={`text-xs ${star <= Math.floor(product.rating) ? 'text-amber-500' : 'text-gray-300'}`}
-                >
-                  ★
-                </span>
-              ))}
-            </div>
-            <span className="text-xs text-neutral-400">({product.reviewCount})</span>
+        
+        {/* Price badge - Figma: frosted glass, bottom-12 left-16, h-28, px-6 py-2, rounded-8 */}
+        {config.showPrice && (
+          <div 
+            className="absolute flex items-center justify-center"
+            style={{
+              bottom: '12px',
+              left: '16px',
+              height: '28px',
+              padding: '2px 6px',
+              borderRadius: '8px',
+              backgroundColor: 'rgba(255, 255, 255, 0.4)',
+              backdropFilter: 'blur(20px)',
+            }}
+          >
+            <span style={{ fontSize: '14px', fontWeight: 600, color: '#14161a', lineHeight: '1.5' }}>
+              {formatPrice(product.price)}
+            </span>
           </div>
         )}
 
-        {config.showDescription && !isCompact && (
-          <p className="text-neutral-500 text-xs line-clamp-2 mt-1">
-            {product.description}
-          </p>
+        {/* Promo Badge - same frosted glass style as price, top-left */}
+        {config.showPromoBadge && badge && (
+          <div 
+            className="absolute flex items-center justify-center"
+            style={{
+              top: '12px',
+              left: '16px',
+              height: '28px',
+              padding: '2px 8px',
+              borderRadius: '8px',
+              backgroundColor: 'rgba(9, 14, 21, 0.7)',
+              backdropFilter: 'blur(20px)',
+            }}
+          >
+            <span style={{ fontSize: '12px', fontWeight: 500, color: '#ffffff', lineHeight: '1.5' }}>
+              {badge.text}
+            </span>
+          </div>
         )}
+      </div>
 
-        {config.showVariants && variantText && (
-          <p className="text-neutral-500 text-xs mt-1">
-            {variantText}
-          </p>
-        )}
+      {/* Content - Figma: px-16, pt-14, pb-16 */}
+      <div style={{ padding: '14px 16px 16px 16px' }}>
+        <div className="flex flex-col gap-2.5">
+          {/* Title + Description block - gap 2px */}
+          <div className="flex flex-col gap-0.5">
+            {config.showTitle && (
+              <h3 
+                className="truncate"
+                style={{ 
+                  fontSize: '14px', 
+                  fontWeight: 600, 
+                  lineHeight: '1.5', 
+                  color: '#14161a',
+                }}
+              >
+                {product.name}
+              </h3>
+            )}
+
+            {config.showDescription && (
+              <p 
+                className="line-clamp-2"
+                style={{ 
+                  fontSize: '13px', 
+                  lineHeight: 'normal', 
+                  color: '#6c6f74',
+                }}
+              >
+                {product.description}
+              </p>
+            )}
+          </div>
+
+          {/* Rating - Figma: star-12 + rating (Medium 13px #14161a) + count (Regular 13px #6c6f74) */}
+          {config.showRating && (
+            <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
+                <img src="/src/components/icons/star-full.svg" alt="" className="w-3 h-3" />
+                <span style={{ fontSize: '13px', fontWeight: 500, lineHeight: '1.5', color: '#14161a' }}>
+                  {product.rating}
+                </span>
+              </div>
+              <span style={{ fontSize: '13px', lineHeight: '1.5', color: '#6c6f74' }}>
+                ({product.reviewCount})
+              </span>
+            </div>
+          )}
+        </div>
 
         {/* Large CTA Button */}
         {config.showViewDetailsLarge && (
           <button 
-            className="w-full mt-3 py-2 text-sm text-neutral-700 border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors"
+            className="w-full mt-4 py-2 text-sm border rounded-lg hover:bg-neutral-50 transition-colors"
+            style={{ color: '#14161a', borderColor: 'rgba(9, 14, 21, 0.1)' }}
             onClick={(e) => { e.stopPropagation(); handleClick(); }}
           >
             View details
@@ -253,7 +323,7 @@ export function ProductCard({
         {/* Add to Cart CTA */}
         {config.showAddToCart && (
           <button 
-            className="w-full mt-2 py-2 text-sm text-white bg-neutral-900 rounded-lg hover:bg-neutral-800 transition-colors"
+            className="w-full mt-2 py-2 text-sm text-white bg-[#2a2a2a] rounded-lg hover:bg-[#3a3a3a] transition-colors"
             onClick={(e) => { e.stopPropagation(); console.log('Add to cart:', product.id); }}
           >
             Add to cart

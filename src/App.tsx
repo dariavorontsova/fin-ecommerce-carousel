@@ -156,7 +156,7 @@ function App() {
               <Badge 
                 key={m.id} 
                 variant={m.done ? 'default' : 'outline'}
-                className={m.done ? 'bg-neutral-900 hover:bg-neutral-900 text-white' : 'border-neutral-300 text-neutral-500'}
+                className={m.done ? 'bg-[#2a2a2a] hover:bg-[#2a2a2a] text-white' : 'border-neutral-300 text-neutral-500'}
               >
                 {m.done && '✓ '}{m.id}
               </Badge>
@@ -326,7 +326,7 @@ function App() {
       <div className="ml-80 min-h-screen bg-neutral-100" />
 
       {/* Messenger - fixed to bottom right */}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-4">
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4">
         {messengerOpen && (
           <Messenger
             state={messengerState}
@@ -343,7 +343,7 @@ function App() {
         {/* Launcher button - always visible */}
         <button
           onClick={() => setMessengerOpen(!messengerOpen)}
-          className="w-12 h-12 rounded-full bg-neutral-900 hover:bg-neutral-800 shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+          className="w-12 h-12 rounded-full bg-[#2a2a2a] hover:bg-[#3a3a3a] shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95"
           aria-label={messengerOpen ? "Minimize chat" : "Open chat"}
         >
           {messengerOpen ? (

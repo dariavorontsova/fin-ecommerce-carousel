@@ -36,13 +36,15 @@ export function Messenger({
   return (
     <div 
       className={`
-        flex flex-col bg-white rounded-messenger shadow-messenger overflow-hidden
+        flex flex-col bg-white overflow-hidden
         transition-all duration-300 ease-out
         ${isExpanded ? 'w-[700px]' : 'w-[400px]'}
       `}
       style={{ 
-        height: isExpanded ? '680px' : '600px',
-        maxHeight: '90vh'
+        height: isExpanded ? '702px' : '702px',
+        maxHeight: '90vh',
+        borderRadius: '24px',
+        boxShadow: '0px 5px 40px rgba(15, 15, 15, 0.16)',
       }}
     >
       <MessengerHeader 

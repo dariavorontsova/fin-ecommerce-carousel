@@ -9,7 +9,7 @@ interface CarouselLayoutProps {
 export function CarouselLayout({ 
   children, 
   showNavigation = true,
-  gap = 12 
+  gap = 8 // Figma spec: 8px gap between cards
 }: CarouselLayoutProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -50,45 +50,67 @@ export function CarouselLayout({
   };
 
   return (
-    <div className="relative group">
-      {/* Scroll container */}
+    <div 
+      className="relative"
+      style={{
+        // Extend beyond parent padding to full messenger width
+        marginLeft: '-16px',
+        marginRight: '-16px',
+        // Allow shadows to be visible
+        overflow: 'visible',
+      }}
+    >
+      {/* Scroll container - with padding to maintain card start position and shadow space */}
       <div 
         ref={scrollRef}
-        className="flex overflow-x-auto scrollbar-hide pb-1"
-        style={{ gap: `${gap}px` }}
+        className="flex overflow-x-auto scrollbar-hide"
+        style={{ 
+          gap: `${gap}px`,
+          paddingLeft: '16px',
+          paddingRight: '16px',
+          // Extra padding for shadows (shadow blur is 28px, so need ~32px space)
+          paddingTop: '32px',
+          paddingBottom: '32px',
+          // Compensate with negative margin so layout doesn't shift
+          marginTop: '-32px',
+          marginBottom: '-32px',
+        }}
       >
         {children}
       </div>
 
-      {/* Left navigation arrow */}
-      {showNavigation && canScrollLeft && (
-        <button
-          onClick={() => scroll('left')}
-          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-50"
-          aria-label="Scroll left"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-      )}
-
-      {/* Right navigation arrow */}
+      {/* Right navigation arrow - no border, just shadow */}
       {showNavigation && canScrollRight && (
         <button
           onClick={() => scroll('right')}
-          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-50"
+          className="absolute top-1/2 -translate-y-1/2 w-9 h-9 bg-white rounded-full flex items-center justify-center hover:bg-gray-50"
+          style={{
+            right: '8px',
+            boxShadow: '0px 1px 4px rgba(9, 14, 21, 0.06), 0px 4px 28px rgba(9, 14, 21, 0.06)',
+          }}
           aria-label="Scroll right"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M6 4L10 8L6 12" stroke="#14161a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
       )}
 
-      {/* Scroll indicator (right edge fade) */}
-      {canScrollRight && (
-        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-messenger-surface to-transparent pointer-events-none" />
+      {/* Left navigation arrow - no border, just shadow */}
+      {showNavigation && canScrollLeft && (
+        <button
+          onClick={() => scroll('left')}
+          className="absolute top-1/2 -translate-y-1/2 w-9 h-9 bg-white rounded-full flex items-center justify-center hover:bg-gray-50"
+          style={{
+            left: '8px',
+            boxShadow: '0px 1px 4px rgba(9, 14, 21, 0.06), 0px 4px 28px rgba(9, 14, 21, 0.06)',
+          }}
+          aria-label="Scroll left"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 12L6 8L10 4" stroke="#14161a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
       )}
     </div>
   );

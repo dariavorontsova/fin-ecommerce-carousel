@@ -17,12 +17,14 @@ export function MessageBubble({ message, cardConfig, layout, aiReasoningMode = f
   return <AgentBubble message={message} cardConfig={cardConfig} layout={layout} aiReasoningMode={aiReasoningMode} />;
 }
 
-// User message bubble - right aligned
+// User message bubble - right aligned, black accent, max-w 280px, 20px radius
 function UserBubble({ message }: { message: UserMessage }) {
   return (
     <div className="flex justify-end">
-      <div className="max-w-[85%] bg-neutral-900 text-white px-4 py-2.5 rounded-2xl rounded-br-md">
-        <p className="text-sm leading-relaxed">{message.content}</p>
+      <div className="max-w-[280px] px-4 py-3 rounded-[20px] bg-[#2a2a2a]">
+        <p className="text-sm leading-[1.5] text-white">
+          {message.content}
+        </p>
       </div>
     </div>
   );
@@ -40,34 +42,30 @@ function AgentBubble({
   layout: CardLayout;
   aiReasoningMode: boolean;
 }) {
-  const effectiveLayout = message.layout || layout;
+  // Config panel layout takes precedence for testing purposes
+  const effectiveLayout = layout;
   const hasProducts = message.products && message.products.length > 0;
 
   return (
-    <div className="flex flex-col gap-3">
-      {/* Agent avatar + text */}
-      <div className="flex items-start gap-2.5">
-        {/* Fin avatar */}
-        <div className="w-7 h-7 rounded-full bg-neutral-900 flex items-center justify-center flex-shrink-0">
-          <span className="text-white text-xs font-semibold">F</span>
-        </div>
-        
-        {/* Text content */}
-        <div className="max-w-[85%] bg-neutral-100 text-neutral-900 px-4 py-2.5 rounded-2xl rounded-bl-md">
-          <p className="text-sm leading-relaxed">{message.content}</p>
-        </div>
+    <div className="flex flex-col gap-4">
+      {/* Text content - Figma: #f5f5f5, max-w 336px, 20px radius */}
+      <div 
+        className="max-w-[336px] px-4 py-3 rounded-[20px]"
+        style={{ backgroundColor: '#f5f5f5' }}
+      >
+        <p className="text-sm leading-[20px]" style={{ color: '#14161a' }}>
+          {message.content}
+        </p>
       </div>
 
       {/* Product recommendations - full width */}
       {hasProducts && (
-        <div className="ml-9 -mr-1">
-          <ProductLayout
-            products={message.products!}
-            layout={effectiveLayout}
-            cardConfig={cardConfig}
-            aiReasoningMode={aiReasoningMode}
-          />
-        </div>
+        <ProductLayout
+          products={message.products!}
+          layout={effectiveLayout}
+          cardConfig={cardConfig}
+          aiReasoningMode={aiReasoningMode}
+        />
       )}
     </div>
   );
@@ -85,8 +83,23 @@ function ProductLayout({
   cardConfig: CardConfig;
   aiReasoningMode: boolean;
 }) {
+  // Determine card variant based on layout
+  const getCardVariant = (): 'default' | 'compact' | 'list' => {
+    if (layout === 'list') return 'list';
+    if (layout === 'carousel') return 'compact';
+    return 'default'; // grid uses default
+  };
+
+  const cardVariant = getCardVariant();
+
   const cards = products.map((product) => (
-    <ProductCard key={product.id} product={product} config={cardConfig} aiReasoningMode={aiReasoningMode} />
+    <ProductCard 
+      key={product.id} 
+      product={product} 
+      config={cardConfig} 
+      variant={cardVariant}
+      aiReasoningMode={aiReasoningMode} 
+    />
   ));
 
   switch (layout) {

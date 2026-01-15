@@ -9,9 +9,9 @@ const toggleVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-transparent text-neutral-500 data-[state=on]:bg-neutral-900 data-[state=on]:text-white",
+        default: "bg-transparent text-neutral-500 data-[state=on]:bg-[#2a2a2a] data-[state=on]:text-white",
         outline:
-          "border border-input bg-transparent shadow-sm hover:bg-neutral-100 data-[state=on]:bg-neutral-900 data-[state=on]:text-white data-[state=on]:border-neutral-900",
+          "border border-input bg-transparent shadow-sm hover:bg-neutral-100 data-[state=on]:bg-[#2a2a2a] data-[state=on]:text-white data-[state=on]:border-[#2a2a2a]",
       },
       size: {
         default: "h-9 px-3 min-w-9",
