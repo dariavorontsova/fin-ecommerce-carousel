@@ -69,12 +69,13 @@ export function ProductCard({
         onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
         onClick={handleClick}
       >
-        {/* Image - always 200px height */}
-        <div className="relative h-[200px] w-full overflow-hidden">
+        {/* Image - 1:1 square aspect ratio (Shopify standard) */}
+        <div className="relative w-full overflow-hidden" style={{ aspectRatio: '1 / 1' }}>
           <img 
             src={product.image} 
             alt={product.name}
             className="w-full h-full object-cover"
+            style={{ objectPosition: 'top center' }}
           />
         </div>
 
@@ -162,7 +163,7 @@ export function ProductCard({
           {config.showDescription && (
             <p 
               className="line-clamp-2"
-              style={{ fontSize: '13px', lineHeight: 'normal', color: '#6c6f74' }}
+              style={{ fontSize: '13px', fontWeight: 400, lineHeight: '16px', color: '#6c6f74' }}
             >
               {product.description}
             </p>
@@ -209,45 +210,46 @@ export function ProductCard({
       onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
       onClick={handleClick}
     >
-      {/* Image Container - Figma: always 200px height */}
-      <div className="relative h-[200px] w-full">
+      {/* Image Container - 1:1 square aspect ratio (Shopify standard) */}
+      <div className="relative w-full" style={{ aspectRatio: '1 / 1' }}>
         {config.showImage && (
           <img 
             src={product.image} 
             alt={product.name}
             className="w-full h-full object-cover"
+            style={{ objectPosition: 'top center' }}
           />
         )}
         
-        {/* Price badge - Figma: frosted glass, bottom-12 left-16, h-28, px-6 py-2, rounded-8 */}
+        {/* Price badge - Figma: top-left, 12px from edges, h-24, dark bg with white text */}
         {config.showPrice && (
           <div 
             className="absolute flex items-center justify-center"
             style={{
-              bottom: '12px',
-              left: '16px',
-              height: '28px',
-              padding: '2px 6px',
+              top: '12px',
+              left: '12px',
+              height: '24px',
+              padding: '3px 6px 2px 6px', // Slightly more top padding for visual balance
               borderRadius: '8px',
-              backgroundColor: 'rgba(255, 255, 255, 0.4)',
+              backgroundColor: 'rgba(9, 14, 21, 0.4)', // 40% opacity
               backdropFilter: 'blur(20px)',
             }}
           >
-            <span style={{ fontSize: '14px', fontWeight: 600, color: '#14161a', lineHeight: '1.5' }}>
+            <span style={{ fontSize: '14px', fontWeight: 500, color: '#ffffff', lineHeight: '1.5' }}>
               {formatPrice(product.price)}
             </span>
           </div>
         )}
 
-        {/* Promo Badge - same frosted glass style as price, top-left */}
+        {/* Promo Badge - top-right to avoid conflict with price */}
         {config.showPromoBadge && badge && (
           <div 
             className="absolute flex items-center justify-center"
             style={{
               top: '12px',
-              left: '16px',
-              height: '28px',
-              padding: '2px 8px',
+              right: '12px',
+              height: '24px',
+              padding: '3px 6px 2px 6px',
               borderRadius: '8px',
               backgroundColor: 'rgba(9, 14, 21, 0.7)',
               backdropFilter: 'blur(20px)',
@@ -262,9 +264,13 @@ export function ProductCard({
 
       {/* Content - Figma: px-16, pt-14, pb-16 */}
       <div style={{ padding: '14px 16px 16px 16px' }}>
-        <div className="flex flex-col gap-2.5">
-          {/* Title + Description block - gap 2px */}
-          <div className="flex flex-col gap-0.5">
+        {/* Figma: gap-8px with description, gap-4px without description */}
+        <div 
+          className="flex flex-col"
+          style={{ gap: config.showDescription ? '8px' : '4px' }}
+        >
+          {/* Title + Description block - Figma: gap-2px */}
+          <div className="flex flex-col" style={{ gap: '2px' }}>
             {config.showTitle && (
               <h3 
                 className="truncate"
@@ -284,7 +290,8 @@ export function ProductCard({
                 className="line-clamp-2"
                 style={{ 
                   fontSize: '13px', 
-                  lineHeight: 'normal', 
+                  fontWeight: 400,
+                  lineHeight: '16px', 
                   color: '#6c6f74',
                 }}
               >

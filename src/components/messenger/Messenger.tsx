@@ -38,11 +38,14 @@ export function Messenger({
       className={`
         flex flex-col bg-white overflow-hidden
         transition-all duration-300 ease-out
-        ${isExpanded ? 'w-[700px]' : 'w-[400px]'}
+        ${isExpanded ? 'w-[680px]' : 'w-[400px]'}
       `}
       style={{ 
-        height: isExpanded ? '702px' : '702px',
-        maxHeight: '90vh',
+        // Expanded: dynamic height with 24px from top edge
+        // Bottom space: 24px (padding) + 48px (launcher) + 16px (gap) = 88px
+        // Total: 24px top + 88px bottom = 112px
+        height: isExpanded ? 'calc(100vh - 112px)' : '702px',
+        maxHeight: isExpanded ? 'none' : '90vh',
         borderRadius: '24px',
         boxShadow: '0px 5px 40px rgba(15, 15, 15, 0.16)',
       }}

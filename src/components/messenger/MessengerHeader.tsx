@@ -6,7 +6,7 @@ interface MessengerHeaderProps {
 
 export function MessengerHeader({ onBack, onMenu, onClose }: MessengerHeaderProps) {
   return (
-    <div className="flex items-center h-[54px] px-[13px] py-[8px] border-b bg-white" style={{ borderColor: '#f5f5f5' }}>
+    <div className="flex items-center h-[54px] px-[13px] py-[8px] border-b bg-white" style={{ borderColor: 'rgba(9, 14, 21, 0.08)', borderTopLeftRadius: '24px', borderTopRightRadius: '24px' }}>
       {/* Left side: Back + Avatar + Title */}
       <div className="flex-1 flex items-center gap-[2px]">
         {/* Back button - 36x36 */}

@@ -942,12 +942,14 @@ Incremental build plan with testable checkpoints. Each milestone is verified bef
 - [ ] Message list with proper spacing and scroll behavior
 - [ ] Typing indicator (optional)
 
-### Milestone 7: OpenAI Integration
-- [ ] API client for OpenAI with structured JSON output
-- [ ] System prompt with decision logic and response guidelines
-- [ ] Parse and validate response against schema
-- [ ] Product search function that filters mock catalog based on LLM criteria
-- [ ] Error handling and retry logic
+### Milestone 7: OpenAI Integration ✅
+- [x] API client for OpenAI with structured JSON output
+- [x] System prompt with decision logic and response guidelines
+- [x] Parse and validate response against schema
+- [x] Product search function that filters mock catalog based on LLM criteria
+- [x] Error handling and loading states
+- [x] Mock mode for development without API key
+- [x] Toggle between Mock and LLM modes in UI
 
 ### Milestone 8: Debug Panel
 - [ ] Display intent classification, confidence, signals

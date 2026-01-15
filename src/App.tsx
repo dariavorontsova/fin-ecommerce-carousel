@@ -1,8 +1,16 @@
-import { useState, useCallback } from 'react';
-import { Messenger, MessengerState } from './components/messenger';
-import { products, getProductsByCategory } from './data/products';
-import { CardConfig, DEFAULT_CARD_CONFIG, CardLayout } from './types/product';
-import { Message, createUserMessage, createAgentMessage } from './types/message';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { Messenger } from './components/messenger';
+import { CardConfig, DEFAULT_CARD_CONFIG, CardLayout, MessengerState, Product } from './types/product';
+import { Message, createUserMessage, createAgentMessage, LLMDecision } from './types/message';
+import { getAllProducts } from './data/products';
+import {
+  queryFinMock,
+  queryFin,
+  configureOpenAI,
+  isConfigured,
+  ConversationMessage,
+  FinResponse,
+} from './services';
 
 // shadcn/ui components
 import { Label } from './components/ui/label';
@@ -10,6 +18,14 @@ import { Switch } from './components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from './components/ui/toggle-group';
 import { Badge } from './components/ui/badge';
 import { Separator } from './components/ui/separator';
+import { Input } from './components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './components/ui/select';
 
 const milestones = [
   { id: 'M1', label: 'Setup', done: true },
@@ -18,33 +34,31 @@ const milestones = [
   { id: 'M4', label: 'Cards', done: true },
   { id: 'M5', label: 'Layouts', done: true },
   { id: 'M6', label: 'Thread', done: true },
-  { id: 'M7', label: 'OpenAI', done: false },
+  { id: 'M7', label: 'OpenAI', done: true },
   { id: 'M8', label: 'Debug', done: false },
 ];
 
-// Demo conversation with products embedded
-function createDemoConversation(): Message[] {
-  const lightingProducts = getProductsByCategory('lighting').slice(0, 5);
-  const clothingProducts = getProductsByCategory('clothing').slice(0, 4);
+// Helper to create demo conversation with products
+function createDemoConversation(products: Product[]): Message[] {
+  // Get jackets for the first query
+  const jackets = products.filter(p => p.subcategory === 'jackets').slice(0, 5);
+  // Get dresses for variety
+  const dresses = products.filter(p => p.subcategory === 'dresses').slice(0, 4);
 
   return [
-    createUserMessage("I'm looking for a modern desk lamp"),
+    createUserMessage("I'm looking for a nice winter jacket"),
     createAgentMessage(
-      "I'd be happy to help you find the perfect desk lamp! Here are some stylish modern options that would work great for your workspace:",
-      { 
-        products: lightingProducts,
+      "Here are some great jacket options for you:",
+      {
+        products: jackets.length > 0 ? jackets : products.slice(0, 5),
         layout: 'carousel',
       }
     ),
-    createUserMessage("These look great! Do you have anything in matte black?"),
+    createUserMessage("These look great! Do you have any dresses?"),
     createAgentMessage(
-      "Great choice! The Nordic Arc Lamp and Adjustable LED Desk Lamp both come in matte black finishes. The Nordic Arc is particularly popular for its minimalist design. Would you like more details on either of these?",
-    ),
-    createUserMessage("Actually, can you show me some running shoes instead?"),
-    createAgentMessage(
-      "Of course! Here are some top-rated running shoes we have available:",
+      "Of course! Here are some stylish dresses:",
       {
-        products: clothingProducts,
+        products: dresses.length > 0 ? dresses : products.slice(15, 19),
         layout: 'carousel',
       }
     ),
@@ -53,9 +67,8 @@ function createDemoConversation(): Message[] {
 
 function App() {
   const [messengerState, setMessengerState] = useState<MessengerState>('default');
-  const [messengerOpen, setMessengerOpen] = useState(true);
   const [cardLayout, setCardLayout] = useState<CardLayout>('carousel');
-  const [messages, setMessages] = useState<Message[]>(createDemoConversation);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [aiReasoningMode, setAiReasoningMode] = useState(false);
   const [cardConfig, setCardConfig] = useState<CardConfig>({
@@ -63,65 +76,120 @@ function App() {
     showDescription: false,
     showViewDetailsLarge: false,
   });
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
 
-  // Handle sending a new message (demo - simulates agent response)
-  const handleSend = useCallback((content: string) => {
+  // LLM Integration state
+  const [useLLM, setUseLLM] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [lastResponse, setLastResponse] = useState<FinResponse | null>(null);
+  const conversationHistoryRef = useRef<ConversationMessage[]>([]);
+
+  // Product preview state (using subcategory since all products are 'clothing')
+  const [previewSubcategory, setPreviewSubcategory] = useState<string>('');
+
+  // Load products from DummyJSON API on mount
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        const products = await getAllProducts();
+        setAllProducts(products);
+        // Initialize demo conversation with loaded products
+        setMessages(createDemoConversation(products));
+      } catch (error) {
+        console.error('Failed to load products:', error);
+      } finally {
+        setProductsLoading(false);
+      }
+    }
+    loadProducts();
+  }, []);
+
+  // Handle sending a new message - uses LLM or mock based on toggle
+  const handleSend = useCallback(async (content: string) => {
     // Add user message
     const userMsg = createUserMessage(content);
     setMessages(prev => [...prev, userMsg]);
-    
-    // Simulate agent "thinking"
     setIsLoading(true);
-    
-    setTimeout(() => {
-      // Create mock agent response
-      const lowerContent = content.toLowerCase();
-      let agentResponse: Message;
 
-      // Simple keyword matching for demo purposes
-      if (lowerContent.includes('lamp') || lowerContent.includes('light')) {
-        agentResponse = createAgentMessage(
-          "Here are some lighting options that might interest you:",
-          { products: getProductsByCategory('lighting').slice(0, 4), layout: cardLayout }
-        );
-      } else if (lowerContent.includes('shoe') || lowerContent.includes('running') || lowerContent.includes('clothes')) {
-        agentResponse = createAgentMessage(
-          "Here are some clothing items you might like:",
-          { products: getProductsByCategory('clothing').slice(0, 4), layout: cardLayout }
-        );
-      } else if (lowerContent.includes('food') || lowerContent.includes('snack') || lowerContent.includes('eat')) {
-        agentResponse = createAgentMessage(
-          "Here are some tasty food options:",
-          { products: getProductsByCategory('food').slice(0, 4), layout: cardLayout }
-        );
-      } else if (lowerContent.includes('pet') || lowerContent.includes('dog') || lowerContent.includes('cat')) {
-        agentResponse = createAgentMessage(
-          "Here are some pet products:",
-          { products: getProductsByCategory('pets').slice(0, 4), layout: cardLayout }
-        );
-      } else if (lowerContent.includes('book') || lowerContent.includes('read')) {
-        agentResponse = createAgentMessage(
-          "Here are some books you might enjoy:",
-          { products: getProductsByCategory('books').slice(0, 4), layout: cardLayout }
-        );
-      } else if (lowerContent.includes('help') || lowerContent.includes('order') || lowerContent.includes('return')) {
-        // Support query - no products
-        agentResponse = createAgentMessage(
-          "I'd be happy to help with that! To assist you better, could you provide your order number? You can find it in your confirmation email.",
-        );
+    try {
+      // Build conversation history from messages
+      const history: ConversationMessage[] = messages.map(m => ({
+        role: m.role === 'user' ? 'user' : 'assistant',
+        content: m.content,
+      }));
+
+      let response: FinResponse;
+
+      if (useLLM && apiKey) {
+        // Configure OpenAI if not already
+        if (!isConfigured()) {
+          configureOpenAI(apiKey);
+        }
+        response = await queryFin(content, history);
       } else {
-        // Generic response with random products
-        const randomProducts = products.sort(() => Math.random() - 0.5).slice(0, 4);
-        agentResponse = createAgentMessage(
-          "Here are some popular items you might be interested in:",
-          { products: randomProducts, layout: cardLayout }
-        );
+        // Use mock mode
+        response = await queryFinMock(content, history);
       }
 
+      setLastResponse(response);
+
+      // Update conversation history
+      conversationHistoryRef.current = [
+        ...history,
+        { role: 'user', content },
+        { role: 'assistant', content: response.llmResponse.response_text },
+      ];
+
+      // Map LLM response to our LLMDecision format
+      const llmDecision: LLMDecision = {
+        intent: {
+          primary: response.llmResponse.intent.primary,
+          confidence: response.llmResponse.intent.confidence,
+          signals: response.llmResponse.intent.signals,
+        },
+        decision: {
+          show_products: response.llmResponse.decision.show_products,
+          renderer: response.llmResponse.decision.renderer,
+          item_count: response.llmResponse.decision.item_count,
+          needs_clarification: response.llmResponse.decision.needs_clarification,
+          clarification_reason: response.llmResponse.decision.clarification_reason ?? undefined,
+        },
+        reasoning: {
+          // Map from service field names to message type field names
+          intent_rationale: response.llmResponse.reasoning.intent_explanation,
+          product_rationale: response.llmResponse.reasoning.renderer_explanation,
+          negative_signals: response.llmResponse.reasoning.confidence_factors,
+        },
+        product_search: response.llmResponse.product_search ? {
+          query: response.llmResponse.product_search.query,
+          category: response.llmResponse.product_search.category,
+        } : undefined,
+      };
+
+      // Create agent message with products
+      const agentResponse = createAgentMessage(
+        response.llmResponse.response_text,
+        {
+          products: response.products,
+          layout: cardLayout,
+          llmDecision,
+          latencyMs: response.latency.total,
+        }
+      );
+
       setMessages(prev => [...prev, agentResponse]);
+    } catch (error) {
+      console.error('Error querying Fin:', error);
+      // Show error message
+      const errorMsg = createAgentMessage(
+        "I'm sorry, I encountered an error processing your request. Please try again.",
+      );
+      setMessages(prev => [...prev, errorMsg]);
+    } finally {
       setIsLoading(false);
-    }, 1200); // Simulate network delay
-  }, [cardLayout]);
+    }
+  }, [messages, useLLM, apiKey, cardLayout]);
 
   const toggleConfig = (key: keyof CardConfig) => {
     setCardConfig(prev => ({ ...prev, [key]: !prev[key] }));
@@ -132,8 +200,30 @@ function App() {
   };
 
   const resetDemo = () => {
-    setMessages(createDemoConversation());
+    if (allProducts.length > 0) {
+      setMessages(createDemoConversation(allProducts));
+    }
   };
+
+  // Preview products from a specific subcategory
+  const previewProducts = (subcategory: string) => {
+    const subcategoryProducts = allProducts.filter(p => p.subcategory === subcategory).slice(0, 6);
+    if (subcategoryProducts.length === 0) return;
+
+    // Capitalize subcategory for display
+    const label = subcategory.charAt(0).toUpperCase() + subcategory.slice(1);
+    const previewMsg = createAgentMessage(
+      `Here are our ${label}:`,
+      {
+        products: subcategoryProducts,
+        layout: cardLayout,
+      }
+    );
+    setMessages(prev => [...prev, previewMsg]);
+  };
+
+  // Get available subcategories (ones that have products)
+  const availableSubcategories = [...new Set(allProducts.map(p => p.subcategory))].sort();
 
   return (
     <div className="min-h-screen bg-neutral-100">
@@ -240,14 +330,14 @@ function App() {
               Card Metadata {aiReasoningMode && <span className="normal-case">(disabled in AI mode)</span>}
             </Label>
             {[
-              { key: 'showImage', label: 'Image' },
-              { key: 'showTitle', label: 'Title' },
-              { key: 'showPrice', label: 'Price' },
-              { key: 'showRating', label: 'Rating' },
-              { key: 'showDescription', label: 'Description' },
-              { key: 'showVariants', label: 'Variants' },
-              { key: 'showPromoBadge', label: 'Promo Badge' },
-            ].map(({ key, label }) => (
+              { key: 'showImage', label: 'Image', listOnly: true },
+              { key: 'showPrice', label: 'Price', listOnly: false },
+              { key: 'showRating', label: 'Rating', listOnly: false },
+              { key: 'showDescription', label: 'Description', listOnly: false },
+              { key: 'showVariants', label: 'Variants', listOnly: false },
+            ]
+              .filter(({ listOnly }) => !listOnly || cardLayout === 'list')
+              .map(({ key, label }) => (
               <div key={key} className="flex items-center justify-between">
                 <Label htmlFor={key} className="text-sm font-normal text-neutral-700 cursor-pointer">
                   {label}
@@ -310,14 +400,101 @@ function App() {
             </div>
           </div>
 
-          {/* Demo Mode Notice */}
-          <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
-            <div className="font-medium text-amber-800 text-sm">
-              Demo Mode
+          <Separator className="bg-neutral-200" />
+
+          {/* Product Preview */}
+          <div className="space-y-3">
+            <Label className="text-xs text-neutral-500 uppercase tracking-wide">
+              Product Preview
+            </Label>
+            <p className="text-xs text-neutral-500">
+              Preview products by subcategory
+            </p>
+            <div className="flex gap-2">
+              <Select
+                value={previewSubcategory}
+                onValueChange={(value) => setPreviewSubcategory(value)}
+              >
+                <SelectTrigger className="flex-1 h-8 text-xs bg-white">
+                  <SelectValue placeholder="Select subcategory..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSubcategories.map((subcat) => (
+                    <SelectItem key={subcat} value={subcat} className="text-xs">
+                      {subcat.charAt(0).toUpperCase() + subcat.slice(1)} ({allProducts.filter(p => p.subcategory === subcat).length})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <button
+                onClick={() => previewSubcategory && previewProducts(previewSubcategory)}
+                disabled={!previewSubcategory || productsLoading}
+                className="px-3 py-1.5 text-xs bg-[#2a2a2a] text-white hover:bg-[#3a3a3a] disabled:opacity-40 disabled:cursor-not-allowed rounded-md transition-colors"
+              >
+                Preview
+              </button>
             </div>
-            <div className="text-xs text-amber-700 mt-1">
-              Using mock responses. OpenAI integration coming in M7.
+          </div>
+
+          <Separator className="bg-neutral-200" />
+
+          {/* LLM Mode Toggle */}
+          <div className="space-y-3">
+            <Label className="text-xs text-neutral-500 uppercase tracking-wide">
+              AI Backend
+            </Label>
+            <div className="flex items-center justify-between">
+              <div className="flex-1 pr-4">
+                <Label htmlFor="useLLM" className="text-sm font-medium text-neutral-900 cursor-pointer block">
+                  Use OpenAI
+                </Label>
+                <p className="text-xs text-neutral-500 mt-0.5">
+                  {useLLM ? 'Real LLM decisions' : 'Mock responses'}
+                </p>
+              </div>
+              <Switch
+                id="useLLM"
+                checked={useLLM}
+                onCheckedChange={setUseLLM}
+              />
             </div>
+
+            {useLLM && (
+              <div className="space-y-2">
+                <Label htmlFor="apiKey" className="text-xs text-neutral-500">
+                  OpenAI API Key
+                </Label>
+                <Input
+                  id="apiKey"
+                  type="password"
+                  placeholder="sk-..."
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="text-sm"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Mode Status */}
+          <div className={`p-3 rounded-lg border ${useLLM && apiKey ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+            <div className={`font-medium text-sm ${useLLM && apiKey ? 'text-green-800' : 'text-amber-800'}`}>
+              {useLLM && apiKey ? '🟢 LLM Mode' : '🟡 Mock Mode'}
+            </div>
+            <div className={`text-xs mt-1 ${useLLM && apiKey ? 'text-green-700' : 'text-amber-700'}`}>
+              {useLLM && apiKey 
+                ? 'Using GPT-4o-mini for intent detection & decisions'
+                : useLLM 
+                  ? 'Enter API key to enable LLM'
+                  : 'Using rule-based mock responses'
+              }
+            </div>
+            {lastResponse && (
+              <div className="text-xs mt-2 pt-2 border-t border-current/20">
+                <span className="opacity-70">Last response: </span>
+                <span className="font-mono">{Math.round(lastResponse.latency.total)}ms</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -325,50 +502,38 @@ function App() {
       {/* Main content area */}
       <div className="ml-80 min-h-screen bg-neutral-100" />
 
+      {/* Gradient backdrop behind messenger - creates depth effect */}
+      <div 
+        className="fixed bottom-0 right-0 pointer-events-none z-40"
+        style={{
+          width: '600px',
+          height: '900px',
+          background: 'radial-gradient(ellipse at bottom right, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.03) 40%, transparent 70%)',
+        }}
+      />
+
       {/* Messenger - fixed to bottom right */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4">
-        {messengerOpen && (
-          <Messenger
-            state={messengerState}
-            messages={messages}
-            cardConfig={cardConfig}
-            layout={cardLayout}
-            isLoading={isLoading}
-            aiReasoningMode={aiReasoningMode}
-            onSend={handleSend}
-            onClose={() => setMessengerOpen(false)}
-          />
-        )}
+        <Messenger
+          state={messengerState}
+          messages={messages}
+          cardConfig={cardConfig}
+          layout={cardLayout}
+          isLoading={isLoading || productsLoading}
+          aiReasoningMode={aiReasoningMode}
+          onSend={handleSend}
+        />
         
-        {/* Launcher button - always visible */}
-        <button
-          onClick={() => setMessengerOpen(!messengerOpen)}
-          className="w-12 h-12 rounded-full bg-[#2a2a2a] hover:bg-[#3a3a3a] shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95"
-          aria-label={messengerOpen ? "Minimize chat" : "Open chat"}
+        {/* Launcher button - decorative only, no toggle functionality */}
+        <div
+          className="w-12 h-12 rounded-full bg-[#2a2a2a] shadow-lg flex items-center justify-center"
+          aria-hidden="true"
         >
-          {messengerOpen ? (
-            // Chevron down when open
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5 7.5L10 12.5L15 7.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          ) : (
-            // Chat icon when closed
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path 
-                d="M21 11.5C21 16.1944 16.9706 20 12 20C10.8053 20 9.66566 19.7878 8.61822 19.4012C8.41312 19.3254 8.18838 19.3156 7.97685 19.3736L4.78215 20.2491C4.15577 20.4207 3.57928 19.8442 3.75093 19.2179L4.62635 16.0232C4.68435 15.8116 4.67462 15.5869 4.59876 15.3818C4.21224 14.3343 4 13.1947 4 12C4 7.02944 7.80558 3 12.5 3" 
-                stroke="white" 
-                strokeWidth="2" 
-                strokeLinecap="round"
-              />
-              <path 
-                d="M19 3L19 9M22 6L16 6" 
-                stroke="white" 
-                strokeWidth="2" 
-                strokeLinecap="round"
-              />
-            </svg>
-          )}
-        </button>
+          {/* Chevron down icon */}
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M5 7.5L10 12.5L15 7.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { Product, CardConfig, CardLayout } from './product';
+import { Product, CardLayout } from './product';
 
 // Intent classification from LLM
 export type IntentType = 'shopping_discovery' | 'support' | 'ambiguous';

@@ -1,16 +1,17 @@
-export type ProductCategory = 
-  | 'furniture'
+// 12 focused categories per PRD (line 141)
+export type ProductCategory =
   | 'lighting'
+  | 'furniture'
   | 'clothing'
   | 'electronics'
   | 'food'
   | 'beauty'
   | 'sports'
-  | 'books'
   | 'kids'
   | 'pets'
   | 'kitchen'
-  | 'garden';
+  | 'garden'
+  | 'books';
 
 export interface Product {
   id: string;
@@ -54,7 +55,8 @@ export type ProductTag =
   | 'vegan'
   | 'gluten-free'
   | 'handmade'
-  | 'premium';
+  | 'premium'
+  | 'educational';
 
 // Category-specific attributes
 export interface ProductAttributes {
@@ -141,7 +143,7 @@ export const DEFAULT_CARD_CONFIG: CardConfig = {
   showRating: true,
   showDescription: false,
   showVariants: false,
-  showPromoBadge: true,
+  showPromoBadge: false, // Disabled - not using promo badges
   showAddToCart: false,
   showViewDetailsLarge: true,
   showViewDetailsCompact: false,
@@ -149,16 +151,16 @@ export const DEFAULT_CARD_CONFIG: CardConfig = {
 
 // Category display names
 export const CATEGORY_LABELS: Record<ProductCategory, string> = {
-  furniture: 'Furniture',
-  lighting: 'Lighting',
-  clothing: 'Clothing & Apparel',
-  electronics: 'Electronics',
-  food: 'Food & Grocery',
-  beauty: 'Beauty & Skincare',
-  sports: 'Sports & Outdoors',
-  books: 'Books',
-  kids: 'Kids & Baby',
-  pets: 'Pet Supplies',
-  kitchen: 'Kitchen & Dining',
-  garden: 'Garden & Outdoor',
+  'lighting': 'Lighting',
+  'furniture': 'Furniture',
+  'clothing': 'Clothing',
+  'electronics': 'Electronics',
+  'food': 'Food & Drink',
+  'beauty': 'Beauty',
+  'sports': 'Sports & Outdoors',
+  'kids': 'Kids & Baby',
+  'pets': 'Pets',
+  'kitchen': 'Kitchen',
+  'garden': 'Garden & Outdoor',
+  'books': 'Books',
 };

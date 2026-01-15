@@ -34,26 +34,14 @@ export function MessengerComposer({
   };
 
   return (
-    <div 
-      className="relative flex flex-col items-center justify-center"
-      style={{
-        // Gradient extends 16px above the composer for a tight fade effect
-        paddingTop: '16px',
-        marginTop: '-16px',
-        paddingLeft: '16px',
-        paddingRight: '16px',
-        paddingBottom: '16px',
-        background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 16px)',
-      }}
-    >
-      <form onSubmit={handleSubmit} className="w-full">
-        {/* Input container - always 1.5px border to prevent layout shift */}
+    <div className="p-4 bg-white">
+      <form onSubmit={handleSubmit}>
         <div 
-          className="bg-white overflow-hidden transition-colors"
           style={{ 
-            border: '1.5px solid',
+            border: '1px solid',
             borderColor: isFocused ? '#2a2a2a' : '#e5e5e5',
             borderRadius: '16px',
+            backgroundColor: 'white',
           }}
         >
           {/* Text input */}
@@ -77,7 +65,7 @@ export function MessengerComposer({
           
           {/* Icons row */}
           <div 
-            className="flex items-center justify-between bg-white"
+            className="flex items-center justify-between"
             style={{ padding: '4px 8px 8px 12px' }}
           >
             {/* Left icons */}
