@@ -137,10 +137,14 @@ function parseCSVLine(line) {
 }
 
 /**
- * Parse the description JSON to extract product details
+ * Parse the description JSON to extract clean product details
+ * Removes "[Category] by [Brand]" prefix and "Product Code: XXX" suffix
+ * Adds proper spacing between features
  */
 function parseDescription(descStr) {
   if (!descStr) return null;
+  
+  let rawDetails = null;
   
   try {
     // The description is Python-style JSON with single quotes - convert to proper JSON
@@ -153,18 +157,103 @@ function parseDescription(descStr) {
     // Extract Product Details
     for (const item of parsed) {
       if (item['Product Details']) {
-        return item['Product Details'];
+        rawDetails = item['Product Details'];
+        break;
       }
     }
   } catch (e) {
     // Try regex extraction as fallback
     const match = descStr.match(/Product Details['"]: ['"]([^}]+)/);
     if (match) {
-      return match[1].replace(/['"]\s*\}.*$/, '').trim();
+      rawDetails = match[1].replace(/['"]\s*\}.*$/, '').trim();
     }
   }
   
-  return null;
+  if (!rawDetails) return null;
+  
+  // Clean up the description:
+  // The raw format is: "[Category] by [Brand][Tagline][Features]Product Code: XXX"
+  // Example: "Coats & Jackets by Nike RunningHit that new PBToggle hoodZip fastening...Product Code: 123"
+  
+  let cleaned = rawDetails;
+  
+  // 1. Remove "Product Code: XXXXX" suffix first
+  cleaned = cleaned.replace(/Product Code:\s*\d+['"]?$/, '').trim();
+  
+  // 2. Remove "[Category] by [Brand]" prefix
+  // The pattern ends where actual content starts - look for common feature/tagline starters
+  // Features start with words like: Toggle, Zip, Button, Spread, Notch, Regular, Relaxed, Side, etc.
+  // Taglines are short catchy phrases
+  
+  // First, try to find where the brand name ends and content begins
+  // Pattern: "[anything] by [BrandWords]" followed by actual content
+  // Brand words end when we hit a known feature starter or tagline pattern
+  
+  const featureStarters = [
+    // Common feature words
+    'Toggle', 'Zip', 'Button', 'Spread', 'Notch', 'Regular', 'Relaxed', 'Oversized', 
+    'Side', 'Front', 'Back', 'High', 'Low', 'V-neck', 'Crew', 'Round', 'Square',
+    'Long', 'Short', 'Cropped', 'Fitted', 'Loose', 'Slim', 'Wide', 'Narrow',
+    'Classic', 'Modern', 'Vintage', 'Retro',
+    // Tagline starters (catchy phrases)
+    'Hit', 'Love', 'Throw', 'Get', 'Make', 'Take', 'Your', 'The', 'That', 'This',
+    'New', 'Fresh', 'Cool', 'Warm', 'Soft', 'Bold', 'Sleek',
+    // Feature descriptions
+    'Hooded', 'Belted', 'Quilted', 'Padded', 'Lined', 'Unlined',
+  ];
+  
+  // Find the position where content starts (after "by [Brand]")
+  const byMatch = cleaned.match(/\sby\s/i);
+  if (byMatch && byMatch.index !== undefined) {
+    const afterBy = cleaned.substring(byMatch.index + 4); // Skip " by "
+    
+    // Find where actual content starts - look for first feature starter
+    for (const starter of featureStarters) {
+      const starterPos = afterBy.indexOf(starter);
+      if (starterPos !== -1 && starterPos < 50) { // Must be within first 50 chars after brand
+        cleaned = afterBy.substring(starterPos);
+        break;
+      }
+    }
+    
+    // If no feature starter found, try to find first capital letter after some lowercase
+    // (brand names are usually all caps or Title Case, content starts fresh)
+    if (cleaned === rawDetails || cleaned.startsWith('y ')) {
+      const contentMatch = afterBy.match(/[a-z]{2,}([A-Z][a-z])/);
+      if (contentMatch && contentMatch.index !== undefined) {
+        cleaned = afterBy.substring(contentMatch.index + contentMatch[0].length - 2);
+      }
+    }
+  }
+  
+  // 3. Add periods between smooshed features
+  // "TogglehoodZipfastening" -> "Toggle hood. Zip fastening"
+  cleaned = cleaned.replace(/([a-z])([A-Z])/g, '$1. $2');
+  
+  // 4. Fix common word breaks
+  cleaned = cleaned
+    .replace(/\bfit\./gi, 'fit.')
+    .replace(/\bcollar\./gi, 'collar.')
+    .replace(/\bpockets\./gi, 'pockets.')
+    .replace(/\bhem\./gi, 'hem.')
+    .replace(/\bdetails\./gi, 'details.');
+  
+  // 5. Clean up spacing and punctuation
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  cleaned = cleaned.replace(/\.\s*\./g, '.');
+  cleaned = cleaned.replace(/^\.\s*/, ''); // Remove leading period
+  
+  // 6. Ensure proper ending
+  if (cleaned && !cleaned.endsWith('.') && !cleaned.endsWith('!') && !cleaned.endsWith('?')) {
+    cleaned += '.';
+  }
+  
+  // 7. Capitalize first letter
+  if (cleaned) {
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+  
+  return cleaned || null;
 }
 
 async function extractProducts() {
