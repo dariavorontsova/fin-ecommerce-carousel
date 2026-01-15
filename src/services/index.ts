@@ -14,3 +14,13 @@ export {
   type IntentType,
   type RendererType,
 } from './openai';
+
+export {
+  searchProducts,
+  getSubcategories,
+  getCatalogStats,
+  clearCache,
+  isCached,
+  type SearchOptions,
+  type SearchResult,
+} from './productSearch';

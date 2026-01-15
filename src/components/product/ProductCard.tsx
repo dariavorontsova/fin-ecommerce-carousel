@@ -264,10 +264,10 @@ export function ProductCard({
 
       {/* Content - Figma: px-16, pt-14, pb-16 */}
       <div style={{ padding: '14px 16px 16px 16px' }}>
-        {/* Figma: gap-8px with description, gap-4px without description */}
+        {/* gap-12px between description and rating, gap-4px without description */}
         <div 
           className="flex flex-col"
-          style={{ gap: config.showDescription ? '8px' : '4px' }}
+          style={{ gap: config.showDescription ? '12px' : '4px' }}
         >
           {/* Title + Description block - Figma: gap-2px */}
           <div className="flex flex-col" style={{ gap: '2px' }}>
@@ -301,16 +301,16 @@ export function ProductCard({
             )}
           </div>
 
-          {/* Rating - Figma: star-12 + rating (Medium 13px #14161a) + count (Regular 13px #6c6f74) */}
+          {/* Rating - 16px height container, 12px star */}
           {config.showRating && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1" style={{ height: '16px' }}>
               <div className="flex items-center gap-0.5">
                 <img src="/src/components/icons/star-full.svg" alt="" className="w-3 h-3" />
-                <span style={{ fontSize: '13px', fontWeight: 500, lineHeight: '1.5', color: '#14161a' }}>
+                <span style={{ fontSize: '13px', fontWeight: 500, lineHeight: '16px', color: '#14161a' }}>
                   {product.rating}
                 </span>
               </div>
-              <span style={{ fontSize: '13px', lineHeight: '1.5', color: '#6c6f74' }}>
+              <span style={{ fontSize: '13px', lineHeight: '16px', color: '#6c6f74' }}>
                 ({product.reviewCount})
               </span>
             </div>
