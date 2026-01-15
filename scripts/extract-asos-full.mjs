@@ -7,16 +7,16 @@ import { writeFileSync } from 'fs';
 
 const CSV_URL = 'https://huggingface.co/datasets/TrainingDataPro/asos-e-commerce-dataset/resolve/main/products_asos.csv';
 
-// Target subcategories
+// Target subcategories (work-appropriate only)
 const TARGET_SUBCATEGORIES = {
   'jackets': 20, 'coats': 18, 'blazers': 12, 'gilets': 8,
   'tops': 18, 'shirts': 15, 'blouses': 10, 't-shirts': 15,
   'jumpers': 15, 'cardigans': 10, 'hoodies': 15, 'sweatshirts': 12,
   'dresses': 20, 'skirts': 12,
-  'jeans': 15, 'trousers': 15, 'shorts': 10, 'leggings': 8,
-  'trainers': 15, 'boots': 15, 'heels': 10, 'sandals': 10, 'loafers': 8, 'flats': 8,
+  'jeans': 15, 'trousers': 15, 'shorts': 10,
+  'trainers': 15, 'boots': 15, 'loafers': 8, 'flats': 8,
   'bags': 15, 'backpacks': 8, 'scarves': 8, 'hats': 8, 'belts': 6, 'sunglasses': 6, 'jewellery': 8,
-  'swimwear': 8, 'lingerie': 8,
+  // Excluded for work: swimwear, lingerie, heels, sandals, leggings
 };
 
 const SUBCATEGORY_KEYWORDS = {
@@ -37,11 +37,8 @@ const SUBCATEGORY_KEYWORDS = {
   'jeans': ['jeans', 'jean '],
   'trousers': ['trouser', 'chino', 'pant', 'cargo', 'jogger'],
   'shorts': ['shorts', 'short '],
-  'leggings': ['legging', 'jegging'],
   'trainers': ['trainer', 'sneaker', 'running shoe'],
   'boots': ['boot', 'chelsea'],
-  'heels': ['heel', 'stiletto', 'court shoe', 'pump'],
-  'sandals': ['sandal', 'slider', 'flip flop'],
   'loafers': ['loafer', 'moccasin'],
   'flats': ['flat', 'ballet', 'ballerina'],
   'bags': ['bag', 'tote', 'clutch', 'purse', 'handbag', 'satchel'],
@@ -51,8 +48,7 @@ const SUBCATEGORY_KEYWORDS = {
   'belts': ['belt'],
   'sunglasses': ['sunglasses', 'sunnies'],
   'jewellery': ['necklace', 'bracelet', 'earring', 'ring ', 'chain', 'pendant'],
-  'swimwear': ['swimsuit', 'bikini', 'swim short'],
-  'lingerie': ['bra ', 'brief', 'thong', 'knicker', 'underwear'],
+  // Excluded: swimwear, lingerie, heels, sandals, leggings
 };
 
 function detectSubcategory(name) {

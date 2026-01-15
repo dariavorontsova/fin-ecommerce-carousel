@@ -16,7 +16,6 @@ import {
 import { Label } from './components/ui/label';
 import { Switch } from './components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from './components/ui/toggle-group';
-import { Badge } from './components/ui/badge';
 import { Separator } from './components/ui/separator';
 import { Input } from './components/ui/input';
 import {
@@ -26,17 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from './components/ui/select';
-
-const milestones = [
-  { id: 'M1', label: 'Setup', done: true },
-  { id: 'M2', label: 'Data', done: true },
-  { id: 'M3', label: 'Chrome', done: true },
-  { id: 'M4', label: 'Cards', done: true },
-  { id: 'M5', label: 'Layouts', done: true },
-  { id: 'M6', label: 'Thread', done: true },
-  { id: 'M7', label: 'OpenAI', done: true },
-  { id: 'M8', label: 'Debug', done: false },
-];
 
 // Helper to create demo conversation with products
 function createDemoConversation(products: Product[]): Message[] {
@@ -235,25 +223,7 @@ function App() {
             <h1 className="text-lg font-semibold text-neutral-900">
               Fin E-commerce Prototype
             </h1>
-            <p className="text-neutral-500 text-sm mt-1">
-              Decision Logic + UI Variants
-            </p>
           </div>
-
-          {/* Milestone Status */}
-          <div className="flex flex-wrap gap-1.5">
-            {milestones.map((m) => (
-              <Badge 
-                key={m.id} 
-                variant={m.done ? 'default' : 'outline'}
-                className={m.done ? 'bg-[#2a2a2a] hover:bg-[#2a2a2a] text-white' : 'border-neutral-300 text-neutral-500'}
-              >
-                {m.done && '✓ '}{m.id}
-              </Badge>
-            ))}
-          </div>
-
-          <Separator className="bg-neutral-200" />
 
           {/* Messenger State */}
           <div className="space-y-3">

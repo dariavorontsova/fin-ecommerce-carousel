@@ -293,6 +293,7 @@ export function ProductCard({
                   fontWeight: 400,
                   lineHeight: '16px', 
                   color: '#6c6f74',
+                  minHeight: '32px', // 2 lines (16px * 2) to keep ratings aligned
                 }}
               >
                 {product.description}
