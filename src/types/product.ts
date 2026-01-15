@@ -1,0 +1,164 @@
+export type ProductCategory = 
+  | 'furniture'
+  | 'lighting'
+  | 'clothing'
+  | 'electronics'
+  | 'food'
+  | 'beauty'
+  | 'sports'
+  | 'books'
+  | 'kids'
+  | 'pets'
+  | 'kitchen'
+  | 'garden';
+
+export interface Product {
+  id: string;
+  name: string;
+  price: number;
+  originalPrice?: number; // For sale items
+  currency: string;
+  image: string;
+  rating: number; // 0-5
+  reviewCount: number;
+  description: string;
+  category: ProductCategory;
+  subcategory: string; // More specific: "desk lamps", "running shoes", "dog food"
+  brand: string;
+  
+  // Universal variants
+  variants?: ProductVariant[];
+  tags?: ProductTag[];
+  inStock: boolean;
+  
+  // Category-specific attributes (not all products have all)
+  attributes?: ProductAttributes;
+  
+  // AI-generated reasoning (populated by LLM based on user query context)
+  // Example: "Modern iconic design that would complement your workspace. Great reviews and energy efficient."
+  aiReasoning?: string;
+}
+
+export interface ProductVariant {
+  type: 'color' | 'size' | 'material' | 'flavor' | 'scent' | 'format';
+  options: string[];
+}
+
+export type ProductTag = 
+  | 'sale' 
+  | 'new' 
+  | 'bestseller' 
+  | 'limited' 
+  | 'eco-friendly'
+  | 'organic'
+  | 'vegan'
+  | 'gluten-free'
+  | 'handmade'
+  | 'premium';
+
+// Category-specific attributes
+export interface ProductAttributes {
+  // Clothing
+  gender?: 'men' | 'women' | 'unisex' | 'kids';
+  sizes?: string[]; // S, M, L, XL or 6, 8, 10, 12 or EU 36-42
+  season?: 'spring' | 'summer' | 'fall' | 'winter' | 'all-season';
+  occasion?: string; // casual, formal, athletic, outdoor
+  
+  // Electronics
+  compatibility?: string[]; // iPhone 15, Samsung Galaxy, etc.
+  specs?: Record<string, string>; // { "Battery": "10hrs", "Storage": "256GB" }
+  warrantyYears?: number;
+  
+  // Food
+  dietary?: string[]; // vegan, vegetarian, keto, paleo
+  allergens?: string[]; // nuts, dairy, gluten, soy
+  organic?: boolean;
+  servingSize?: string;
+  expiryDays?: number;
+  
+  // Beauty
+  skinType?: string[]; // dry, oily, combination, sensitive
+  concerns?: string[]; // acne, aging, hydration, brightening
+  ingredients?: string[]; // key ingredients
+  volume?: string; // 50ml, 100ml
+  
+  // Kids
+  ageRange?: string; // "0-2", "3-5", "6-8", "9-12"
+  safetyWarnings?: string[];
+  educational?: boolean;
+  
+  // Pets
+  petType?: 'dog' | 'cat' | 'bird' | 'fish' | 'small-animal';
+  petSize?: 'small' | 'medium' | 'large' | 'all';
+  lifeStage?: 'puppy' | 'adult' | 'senior' | 'all';
+  
+  // Sports
+  activityType?: string; // running, yoga, cycling, hiking
+  skillLevel?: 'beginner' | 'intermediate' | 'advanced' | 'all';
+  
+  // Garden
+  sunRequirement?: 'full-sun' | 'partial-shade' | 'shade';
+  wateringFrequency?: 'daily' | 'weekly' | 'monthly';
+  indoorOutdoor?: 'indoor' | 'outdoor' | 'both';
+  
+  // Furniture/Home
+  roomType?: string[]; // bedroom, living room, office
+  dimensions?: { width: number; height: number; depth: number; unit: string };
+  material?: string;
+  assemblyRequired?: boolean;
+  
+  // Books
+  author?: string;
+  genre?: string;
+  format?: 'hardcover' | 'paperback' | 'ebook' | 'audiobook';
+  pages?: number;
+  language?: string;
+}
+
+// Card configuration for UI toggles
+export interface CardConfig {
+  showImage: boolean;
+  showTitle: boolean;
+  showPrice: boolean;
+  showRating: boolean;
+  showDescription: boolean;
+  showVariants: boolean;
+  showPromoBadge: boolean;
+  showAddToCart: boolean;
+  showViewDetailsLarge: boolean;
+  showViewDetailsCompact: boolean;
+}
+
+// Layout options
+export type CardLayout = 'carousel' | 'list' | 'grid';
+export type MessengerState = 'default' | 'expanded';
+
+// Default card configuration
+export const DEFAULT_CARD_CONFIG: CardConfig = {
+  showImage: true,
+  showTitle: true,
+  showPrice: true,
+  showRating: true,
+  showDescription: false,
+  showVariants: false,
+  showPromoBadge: true,
+  showAddToCart: false,
+  showViewDetailsLarge: true,
+  showViewDetailsCompact: false,
+};
+
+// Category display names
+export const CATEGORY_LABELS: Record<ProductCategory, string> = {
+  furniture: 'Furniture',
+  lighting: 'Lighting',
+  clothing: 'Clothing & Apparel',
+  electronics: 'Electronics',
+  food: 'Food & Grocery',
+  beauty: 'Beauty & Skincare',
+  sports: 'Sports & Outdoors',
+  books: 'Books',
+  kids: 'Kids & Baby',
+  pets: 'Pet Supplies',
+  kitchen: 'Kitchen & Dining',
+  garden: 'Garden & Outdoor',
+};
