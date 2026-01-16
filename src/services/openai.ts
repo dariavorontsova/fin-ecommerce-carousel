@@ -539,15 +539,47 @@ Select the best products (max 6) and write a BRIEF response.
 
 ## CRITICAL: Response Must Be BRIEF
 
-Your response should be 2-3 short sentences MAX. The products speak for themselves.
+Your response should be 2-3 short sentences MAX. The cards do the heavy lifting.
 
-GOOD response (brief, useful):
-"For tennis, you want breathable and flexible. The Nike jacket is lightweight, the Adidas has water resistance if weather's a factor. Indoor or outdoor courts?"
+## MOST IMPORTANT: card_reason — The Key Differentiator
 
-BAD response (too long, avoid):
-"For a casual jacket for tennis, you'll want something comfortable and breathable. I selected these because they're designed for active wear. The Nike Running hooded jacket in pink is lightweight and offers great breathability, perfect for keeping you comfortable on the court. The ASOS 4505 jacket features reflective details..."
+The card_reason is displayed ON each product card. This is where AI shopping proves its value over traditional e-commerce.
 
-DO NOT describe every product. Mention 1-2 standouts at most. Let the cards do the work.
+**What card_reason is NOT:**
+- NOT a product description ("Light wash mom jeans with ripped details")
+- NOT generic praise ("Great quality jeans")
+- NOT repeating what the user can see in the image
+
+**What card_reason IS:**
+- WHY this product fits THIS user's specific situation
+- A connection between the product and THEIR context/need
+- What makes this the right choice for THEM
+
+**The formula**: [How this product] + [serves their specific need/context]
+
+**Examples for "matching jeans for my leather jacket":**
+
+BAD card_reasons (just descriptions):
+- "Trendy ripped mom jeans with embellishments"
+- "Casual light wash mom jeans with relaxed fit"
+
+GOOD card_reasons (reasoning for THIS context):
+- "Dark distressed wash creates edge-on-edge contrast with leather"
+- "Light wash softens the jacket's toughness — casual balance"
+- "The embellishments echo the jacket's rebellious vibe"
+- "Clean lines let the statement jacket stay the focus"
+
+**Examples for "interview outfit":**
+
+BAD: "Professional navy blazer with modern cut"
+GOOD: "Structured enough for a first impression, comfortable for a long interview day"
+
+**Examples for "beach vacation":**
+
+BAD: "Flowy maxi dress in floral print"
+GOOD: "Packs without wrinkling, works for beach lunch or evening drinks"
+
+**Each card_reason must be DIFFERENT** — explain why you'd pick THIS one vs the others.
 
 ## Output Format
 
@@ -565,8 +597,8 @@ Return JSON:
       "id": "product_id",
       "why_selected": "Brief reason",
       "best_for": "Who/when",
-      "differentiator": "What's unique",
-      "card_reason": "10-15 words for card display"
+      "differentiator": "What's unique vs others shown",
+      "card_reason": "10-15 words: WHY this product for THEIR specific context (not a description!)"
     }
   ],
   "suggested_follow_ups": [
@@ -620,7 +652,8 @@ async function rerankAndRespond(
   userQuery: string,
   understoodIntent: LLMUnderstoodIntent | null,
   candidates: Product[],
-  maxResults: number = 6
+  maxResults: number = 6,
+  viewingProduct?: Product // The product user is viewing (for PDP context)
 ): Promise<RerankAndRespondResult> {
   // Fallback for no candidates or no API key
   if (!isConfigured() || candidates.length === 0) {
@@ -648,7 +681,7 @@ async function rerankAndRespond(
   }));
 
   // Build context about what the user wants
-  const intentContext = understoodIntent
+  let intentContext = understoodIntent
     ? `
 User's understood intent:
 - Explicit need: ${understoodIntent.explicit_need}
@@ -656,6 +689,19 @@ User's understood intent:
 - Context: ${understoodIntent.inferred_context}
 - Decision stage: ${understoodIntent.decision_stage}`
     : '';
+
+  // Add viewing product context - THIS IS CRITICAL for generating good card_reasons
+  if (viewingProduct) {
+    intentContext += `
+
+IMPORTANT - User is viewing this product (use this for card_reason context):
+- Product: "${viewingProduct.name}"
+- Type: ${viewingProduct.subcategory}
+- Brand: ${viewingProduct.brand}
+- Description: ${viewingProduct.description || 'N/A'}
+
+The user wants items that match/complement THIS product. Each card_reason should reference how the recommended item works WITH the ${viewingProduct.subcategory} they're viewing.`;
+  }
 
   const userPrompt = `User query: "${userQuery}"${intentContext}
 
@@ -867,11 +913,13 @@ export async function queryFin(
       if (searchResult.products.length > 0) {
         // Step 2: Combined rerank + response generation (THE KEY FIX)
         // Response is generated AFTER seeing actual products
+        // Pass viewing product for contextual card_reasons
         const rerankResult = await rerankAndRespond(
           userMessage,
           llmResponse.understood_intent,
           searchResult.products,
-          llmResponse.decision.item_count
+          llmResponse.decision.item_count,
+          context.viewingProduct // Pass PDP context for better card_reasons
         );
 
         // Get the selected products in order and attach AI reasoning
