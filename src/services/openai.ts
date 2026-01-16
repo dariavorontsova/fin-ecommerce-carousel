@@ -745,14 +745,29 @@ export async function queryFin(
         }
       } else {
         // No candidates found at all from coarse retrieval
-        const query = llmResponse.product_search.query?.toLowerCase() || '';
-        const shoeWords = ['shoe', 'shoes', 'sneaker', 'trainer', 'running', 'boot', 'heel', 'sandal'];
-        const isShoeQuery = shoeWords.some(w => query.includes(w));
-
-        if (isShoeQuery) {
-          responseText = `I'm sorry, we don't currently have shoes or footwear in our catalog. Our collection focuses on clothing like jackets, dresses, tops, and trousers. Would you like me to help you find something else?`;
+        // This could be: (a) category doesn't exist in catalog, (b) inference was wrong, (c) filters too narrow
+        
+        const inferredSubcategory = llmResponse.product_search?.subcategory?.toLowerCase() || '';
+        const userQuery = userMessage.toLowerCase();
+        
+        // Categories we DON'T have in our ASOS clothing catalog
+        const notInCatalog = ['shoes', 'trainers', 'boots', 'heels', 'sandals', 'bags', 'accessories', 'jewellery', 'watches'];
+        const categoryNotInCatalog = notInCatalog.some(cat => 
+          inferredSubcategory.includes(cat) || userQuery.includes(cat)
+        );
+        
+        // Check if the LLM inferred a category the user didn't explicitly mention
+        const wasInferred = inferredSubcategory && !userQuery.includes(inferredSubcategory);
+        
+        if (categoryNotInCatalog) {
+          // Category doesn't exist in our catalog
+          responseText = `Our catalog focuses on clothing like jackets, dresses, tops, and trousers — I don't have ${inferredSubcategory || 'that category'}. Would you like me to help you find something else?`;
+        } else if (wasInferred) {
+          // LLM inferred a category that might be wrong
+          responseText = `I tried to find ${inferredSubcategory} based on your request, but couldn't find good matches. Could you tell me more about what you're looking for?`;
         } else {
-          responseText = `I couldn't find any products matching "${llmResponse.product_search.query}". Try searching for items like jackets, dresses, tops, jeans, or coats.`;
+          // General no-results
+          responseText = `I couldn't find products matching that. Our catalog has jackets, dresses, tops, jeans, coats, and more. What would you like to explore?`;
         }
         llmResponse.decision.show_products = false;
       }
