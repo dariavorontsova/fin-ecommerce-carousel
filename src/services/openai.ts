@@ -4,7 +4,7 @@
  */
 
 import { Product } from '../types/product';
-import { filterProducts, ProductSearchCriteria } from '../data/products';
+import { searchProducts } from './productSearch';
 
 // ============================================================================
 // Types
@@ -273,19 +273,18 @@ export async function queryFin(
     // Parse LLM response
     const llmResponse: LLMResponse = JSON.parse(data.choices[0].message.content);
 
-    // Search for products if needed
+    // Search for products if needed (on-demand from HuggingFace)
     let products: Product[] = [];
     if (llmResponse.decision.show_products && llmResponse.product_search) {
-      const searchCriteria: ProductSearchCriteria = {
+      const searchResult = await searchProducts({
         query: llmResponse.product_search.query,
-        category: llmResponse.product_search.category as any, // DummyJSON categories
+        subcategory: llmResponse.product_search.subcategory,
+        maxResults: llmResponse.decision.item_count,
+        minPrice: llmResponse.product_search.priceRange?.min,
         maxPrice: llmResponse.product_search.priceRange?.max,
-        minRating: llmResponse.product_search.minRating,
-        tags: llmResponse.product_search.tags,
-        limit: llmResponse.decision.item_count,
-      };
+      });
 
-      products = await filterProducts(searchCriteria);
+      products = searchResult.products;
     }
     searchEndTime = performance.now();
 
@@ -340,41 +339,45 @@ export async function queryFinMock(
   const shoppingSignals = ['looking for', 'need', 'want', 'buy', 'show me', 'recommend', 'best', 'find'];
   const isShopping = shoppingSignals.some((s) => lowerMessage.includes(s));
 
-  // Category detection
+  // Subcategory detection (ASOS clothing data)
   const categoryMap: Record<string, string> = {
-    lamp: 'lighting',
-    light: 'lighting',
-    desk: 'furniture',
-    chair: 'furniture',
-    table: 'furniture',
-    shoe: 'clothing',
-    shirt: 'clothing',
-    clothes: 'clothing',
-    running: 'clothing',
-    phone: 'electronics',
-    laptop: 'electronics',
-    headphone: 'electronics',
-    food: 'food',
-    snack: 'food',
-    organic: 'food',
-    skincare: 'beauty',
-    cream: 'beauty',
-    serum: 'beauty',
-    pet: 'pets',
-    dog: 'pets',
-    cat: 'pets',
-    book: 'books',
-    read: 'books',
-    plant: 'garden',
-    garden: 'garden',
-    kitchen: 'kitchen',
-    cook: 'kitchen',
-    baby: 'kids',
-    kid: 'kids',
-    toy: 'kids',
-    sport: 'sports',
-    fitness: 'sports',
-    yoga: 'sports',
+    jacket: 'jackets',
+    coat: 'coats',
+    blazer: 'blazers',
+    top: 'tops',
+    shirt: 'shirts',
+    blouse: 'blouses',
+    tshirt: 't-shirts',
+    't-shirt': 't-shirts',
+    jumper: 'jumpers',
+    sweater: 'jumpers',
+    cardigan: 'cardigans',
+    hoodie: 'hoodies',
+    sweatshirt: 'sweatshirts',
+    dress: 'dresses',
+    skirt: 'skirts',
+    jean: 'jeans',
+    jeans: 'jeans',
+    trouser: 'trousers',
+    pant: 'trousers',
+    short: 'shorts',
+    trainer: 'trainers',
+    sneaker: 'trainers',
+    boot: 'boots',
+    heel: 'heels',
+    sandal: 'sandals',
+    loafer: 'loafers',
+    flat: 'flats',
+    bag: 'bags',
+    backpack: 'backpacks',
+    scarf: 'scarves',
+    hat: 'hats',
+    cap: 'hats',
+    belt: 'belts',
+    sunglasses: 'sunglasses',
+    necklace: 'jewellery',
+    bracelet: 'jewellery',
+    earring: 'jewellery',
   };
 
   let detectedCategory: string | undefined;
@@ -464,15 +467,15 @@ export async function queryFinMock(
     };
   }
 
-  // Search for products if needed
+  // Search for products if needed (on-demand from HuggingFace)
   let products: Product[] = [];
   if (decision.show_products && productSearch) {
-    const searchCriteria: ProductSearchCriteria = {
+    const searchResult = await searchProducts({
       query: productSearch.query,
-      category: productSearch.category as any, // DummyJSON categories
-      limit: decision.item_count,
-    };
-    products = await filterProducts(searchCriteria);
+      subcategory: productSearch.category, // Maps to subcategory in ASOS data
+      maxResults: decision.item_count,
+    });
+    products = searchResult.products;
   }
 
   const searchEndTime = performance.now();
