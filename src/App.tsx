@@ -109,6 +109,10 @@ function App() {
   
   // Conversation memory: track products shown to avoid repeats
   const [productsShownThisSession, setProductsShownThisSession] = useState<string[]>([]);
+  
+  // Page context: simulate which page user is on (affects query interpretation)
+  const [pageContext, setPageContext] = useState<'home' | 'category' | 'product'>('home');
+  const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
 
   // Product preview state (using subcategory since all products are 'clothing')
   const [previewSubcategory, setPreviewSubcategory] = useState<string>('');
@@ -165,9 +169,11 @@ function App() {
       let response: FinResponse;
 
       if (llmConfigured) {
-        // Pass context including products already shown this session
+        // Pass context including products already shown and page context
         response = await queryFin(content, history, {
           productsShownThisSession,
+          page_type: pageContext,
+          viewingProduct: pageContext === 'product' && viewingProduct ? viewingProduct : undefined,
         });
       } else {
         // Use mock mode
@@ -238,7 +244,7 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, llmConfigured, cardLayout, productsShownThisSession]);
+  }, [messages, llmConfigured, cardLayout, productsShownThisSession, pageContext, viewingProduct]);
 
   const toggleConfig = (key: keyof CardConfig) => {
     setCardConfig(prev => ({ ...prev, [key]: !prev[key] }));
@@ -393,6 +399,55 @@ function App() {
                 onCheckedChange={setAiReasoningMode}
               />
             </div>
+          </div>
+
+          <Separator className="bg-neutral-200" />
+
+          {/* Page Context Selector */}
+          <div className="space-y-3">
+            <Label className="text-xs text-neutral-500 uppercase tracking-wide">
+              Page Context
+            </Label>
+            <p className="text-xs text-neutral-500 -mt-1">
+              Simulates which page the user is viewing
+            </p>
+            <Select value={pageContext} onValueChange={(v) => setPageContext(v as 'home' | 'category' | 'product')}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="home">Home Page</SelectItem>
+                <SelectItem value="category">Category Page</SelectItem>
+                <SelectItem value="product">Product Details Page</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {/* Product selector when on PDP */}
+            {pageContext === 'product' && (
+              <div className="space-y-2">
+                <Label className="text-xs text-neutral-500">Viewing Product</Label>
+                <Select 
+                  value={viewingProduct?.id || ''} 
+                  onValueChange={(id) => setViewingProduct(allProducts.find(p => p.id === id) || null)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a product..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allProducts.slice(0, 20).map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name.length > 40 ? p.name.substring(0, 40) + '...' : p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {viewingProduct && (
+                  <p className="text-xs text-neutral-500 italic">
+                    "{viewingProduct.name}" — {viewingProduct.subcategory}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <Separator className="bg-neutral-200" />

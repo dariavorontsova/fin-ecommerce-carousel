@@ -1,7 +1,7 @@
 import { Product, CardLayout } from './product';
 
 // Intent classification from LLM
-export type IntentType = 'shopping_discovery' | 'support' | 'ambiguous';
+export type IntentType = 'shopping_discovery' | 'support' | 'ambiguous' | 'refinement';
 
 // Renderer decision from LLM
 export type RendererType = 'text_only' | 'single_card' | 'carousel';

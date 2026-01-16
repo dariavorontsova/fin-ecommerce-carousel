@@ -81,6 +81,7 @@ export interface ConversationContext {
   user_status?: 'new' | 'returning' | 'vip';
   previous_purchases?: string[];
   productsShownThisSession?: string[]; // Track shown products to avoid repeats
+  viewingProduct?: Product; // For PDP context - the product user is viewing
 }
 
 export interface FinResponse {
@@ -179,6 +180,21 @@ User wants to adjust the previous product search without starting over.
 - "return" → Provide return policy and process
 - "where is my order" → Offer to help track their order
 - "refund" → Explain refund policy and timeline
+
+## Page Context
+
+The user may be viewing a specific page type. This is provided in the context.
+
+**If page_type is "product" and a viewing_product is provided**:
+- User is on a Product Details Page viewing a specific item
+- Queries like "matching", "similar", "goes with this", "pair with", "something like this but..." refer to the viewed product
+- Include the viewed product when deciding what to search for
+- Example: Viewing "Blue Cotton Shirt" + query "matching pants" → search for pants that match a blue shirt
+
+**If page_type is "home" or "category" (or no viewing_product)**:
+- No specific product context
+- "Matching socks" without context → need to clarify "matching what?"
+- "Something similar" without context → need to clarify "similar to what?"
 
 ## Output Schema
 
@@ -388,40 +404,7 @@ export function isConfigured(): boolean {
 // LLM Product Reranking (Retrieve & Rerank pattern)
 // ============================================================================
 
-// OLD prompt - kept for reference, will be removed after migration
-const RERANK_PROMPT = `You are a product selection AI. Given a user's shopping query and their understood intent, select the products that BEST match what the user is looking for.
-
-Consider:
-- Semantic fit to the USE CASE (e.g., "work" → professional styling, "summer party" → fun/light fabrics)
-- Exact matches (color, style, type mentioned in query)
-- Price if mentioned
-- Quality signals (ratings, reviews)
-- DIVERSITY: include a range of options (understated to bold, different price points)
-
-IMPORTANT: Only select products that genuinely match the query. If the user asks for "red dress" and no products have "red" in the name/description, return an empty selection rather than showing non-red items.
-
-Return a JSON object with:
-{
-  "selected_ids": ["id1", "id2", ...],  // IDs of products to show (max 6, in order of relevance)
-  "overall_reasoning": "Brief explanation of the selection strategy",
-  "product_insights": [
-    {
-      "id": "product_id",
-      "why_selected": "Why this product fits the user's need",
-      "best_for": "When/who would choose this option",
-      "differentiator": "What makes this one unique vs others"
-    }
-  ]
-}
-
-If NO products match well, return:
-{
-  "selected_ids": [],
-  "overall_reasoning": "None of the candidates match the query well because...",
-  "product_insights": []
-}`;
-
-// NEW: Combined rerank + response generation prompt (Priority 1 fix)
+// Combined rerank + response generation prompt
 // This generates the response AFTER seeing the actual products
 const RERANK_AND_RESPOND_PROMPT = `You are a product selection AI for a fashion shopping assistant.
 
@@ -497,13 +480,7 @@ interface ProductInsight {
   card_reason?: string; // Brief reason shown ON the card (10-15 words)
 }
 
-interface RerankResult {
-  selected_ids: string[];
-  overall_reasoning: string;
-  product_insights: ProductInsight[];
-}
-
-// NEW: Result from combined rerank + response generation (Priority 1 fix)
+// Result from combined rerank + response generation
 interface RerankAndRespondResult {
   selected_ids: string[];
   response: {
@@ -517,95 +494,7 @@ interface RerankAndRespondResult {
 }
 
 /**
- * Use LLM to rerank/select the best products from candidates
- * This is the key to semantic search - the LLM actually reads and understands product descriptions
- */
-async function rerankProducts(
-  userQuery: string,
-  understoodIntent: LLMUnderstoodIntent | null,
-  candidates: Product[],
-  maxResults: number = 6
-): Promise<RerankResult> {
-  if (!isConfigured() || candidates.length === 0) {
-    // Fallback: return first N candidates
-    return {
-      selected_ids: candidates.slice(0, maxResults).map(p => p.id),
-      overall_reasoning: 'LLM not configured, returning top candidates by default order',
-      product_insights: []
-    };
-  }
-
-  // Prepare candidate info for the LLM (keep it concise to save tokens)
-  const candidateInfo: ProductCandidate[] = candidates.slice(0, 30).map(p => ({
-    id: p.id,
-    name: p.name,
-    description: p.description || '',
-    price: p.price,
-    brand: p.brand,
-    rating: p.rating,
-  }));
-
-  // Include understood intent to help with semantic matching
-  const intentContext = understoodIntent
-    ? `\nUser's understood intent:
-- Explicit need: ${understoodIntent.explicit_need}
-- Implicit constraints: ${understoodIntent.implicit_constraints.join(', ')}
-- Context: ${understoodIntent.inferred_context}`
-    : '';
-
-  const userPrompt = `User query: "${userQuery}"${intentContext}
-
-Candidate products (select up to ${maxResults} that best match):
-${JSON.stringify(candidateInfo, null, 2)}
-
-Select the products that best match the user's query and intent. Return JSON with selected_ids, overall_reasoning, and product_insights for each selected product.`;
-
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini', // Fast and cheap for reranking
-        messages: [
-          { role: 'system', content: RERANK_PROMPT },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.2, // Slightly higher for more diverse insights
-        response_format: { type: 'json_object' },
-      }),
-    });
-
-    if (!response.ok) {
-      console.error('Rerank API error:', await response.text());
-      return {
-        selected_ids: candidates.slice(0, maxResults).map(p => p.id),
-        overall_reasoning: 'Rerank API failed, using default order',
-        product_insights: []
-      };
-    }
-
-    const data = await response.json();
-    const result: RerankResult = JSON.parse(data.choices[0].message.content);
-
-    console.log('[Rerank] Selected:', result.selected_ids.length, 'products');
-    console.log('[Rerank] Reasoning:', result.overall_reasoning);
-
-    return result;
-  } catch (error) {
-    console.error('Rerank error:', error);
-    return {
-      selected_ids: candidates.slice(0, maxResults).map(p => p.id),
-      overall_reasoning: 'Rerank failed, using default order',
-      product_insights: []
-    };
-  }
-}
-
-/**
- * NEW: Combined rerank + response generation (Priority 1 fix)
+ * Combined rerank + response generation
  * 
  * This is the key architectural fix: generate response AFTER seeing actual products.
  * The LLM sees the product candidates and:
@@ -765,12 +654,21 @@ export async function queryFin(
   let llmEndTime: number;
   let searchEndTime: number;
 
+  // Build context string for LLM
+  let contextString = '';
+  if (context.page_type) {
+    contextString += `Page: ${context.page_type}`;
+  }
+  if (context.viewingProduct) {
+    contextString += `\nViewing product: "${context.viewingProduct.name}" (${context.viewingProduct.subcategory}, ${context.viewingProduct.brand}, £${context.viewingProduct.price})`;
+  }
+  
   // Build messages array for OpenAI
   const messages = [
     { role: 'system' as const, content: SYSTEM_PROMPT },
-    // Add context as a system message if provided
-    ...(Object.keys(context).length > 0
-      ? [{ role: 'system' as const, content: `Current context: ${JSON.stringify(context)}` }]
+    // Add page context if viewing a product
+    ...(contextString
+      ? [{ role: 'system' as const, content: `Current context:\n${contextString}` }]
       : []),
     // Add conversation history
     ...conversationHistory.map((msg) => ({
