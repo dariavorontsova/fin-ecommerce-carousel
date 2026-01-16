@@ -705,10 +705,11 @@ The user wants items that match/complement THIS product. Each card_reason should
 
   const userPrompt = `User query: "${userQuery}"${intentContext}
 
-Product candidates (select up to ${maxResults} that best match, then write a response):
+Product candidates to choose from:
 ${JSON.stringify(candidateInfo, null, 2)}
 
-Select the best products AND write a response that references them by name. Return JSON with selected_ids, response, product_insights, and suggested_follow_ups.`;
+IMPORTANT: Select ${Math.min(maxResults, 5)}-${maxResults} products (aim for variety). Use the EXACT id values from the candidates above.
+Return JSON with selected_ids (array of product IDs), response, product_insights, and suggested_follow_ups.`;
 
   try {
     console.log('[RerankAndRespond] Processing', candidateInfo.length, 'candidates for:', userQuery);
@@ -748,20 +749,29 @@ Select the best products AND write a response that references them by name. Retu
     }
 
     const data = await response.json();
-    const result: RerankAndRespondResult = JSON.parse(data.choices[0].message.content);
+    const rawContent = data.choices[0].message.content;
+    console.log('[RerankAndRespond] Raw LLM response:', rawContent.substring(0, 500));
+    
+    const result: RerankAndRespondResult = JSON.parse(rawContent);
 
-    console.log('[RerankAndRespond] Selected IDs:', result.selected_ids);
-    console.log('[RerankAndRespond] Candidate IDs:', candidateInfo.map(c => c.id).slice(0, 10), '...');
-    console.log('[RerankAndRespond] Selected count:', result.selected_ids.length, 'products');
+    console.log('[RerankAndRespond] Selected IDs:', JSON.stringify(result.selected_ids));
+    console.log('[RerankAndRespond] Candidate IDs (first 10):', JSON.stringify(candidateInfo.map(c => c.id).slice(0, 10)));
+    console.log('[RerankAndRespond] Requested max:', maxResults, '| Selected count:', result.selected_ids.length);
 
     // Validate that selected IDs exist in candidates
-    const validIds = result.selected_ids.filter(id => 
-      candidateInfo.some(c => c.id === id)
-    );
-    if (validIds.length < result.selected_ids.length) {
-      console.warn('[RerankAndRespond] WARNING: Some selected IDs not found in candidates!');
-      console.warn('  Selected:', result.selected_ids);
-      console.warn('  Valid:', validIds);
+    const candidateIdSet = new Set(candidateInfo.map(c => c.id));
+    const validIds = result.selected_ids.filter(id => candidateIdSet.has(id));
+    const invalidIds = result.selected_ids.filter(id => !candidateIdSet.has(id));
+    
+    if (invalidIds.length > 0) {
+      console.error('[RerankAndRespond] INVALID IDs not in candidates:', JSON.stringify(invalidIds));
+      console.error('[RerankAndRespond] Valid IDs:', JSON.stringify(validIds));
+    }
+
+    // If LLM returned invalid IDs, try to salvage by using valid ones
+    if (validIds.length < result.selected_ids.length && validIds.length > 0) {
+      console.warn('[RerankAndRespond] Using only valid IDs:', validIds.length, 'of', result.selected_ids.length);
+      result.selected_ids = validIds;
     }
 
     return result;
