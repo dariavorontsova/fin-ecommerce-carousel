@@ -579,31 +579,32 @@ Select the best products (max 6) and write a BRIEF response.
 
 Your response should be 2-3 short sentences MAX. The cards do the heavy lifting.
 
-## card_reason — Help Them DECIDE
+## card_reason — Help Them DECIDE (Varied Framing)
 
-Each card_reason should help the user understand WHY they might pick THIS one over others. Be useful, not just clever.
+Practical info that helps compare options. BUT vary your framing — no templates.
 
-**Good card_reasons answer practical questions:**
-- What's the warmth level? (light layer vs serious cold)
-- What's the value? (budget pick vs investment piece)
-- What's it best for? (commuting, weekends, dressy occasions)
-- What makes it different from the others shown?
+**BANNED STARTS (never use):**
+- "Pick this if..."
+- "Choose this if..."
+- "Go for this if..."
+- "Add this if..."
+- "This is perfect for..."
+- "This jacket/coat/jumper..."
 
-**Examples that actually help decide:**
+**Good examples (notice: all different framings):**
 
-- "Warmest option here — quilt lining plus borg collar for serious cold"
-- "Budget pick at £66 — good quality for the price"
-- "Dressier than the others — works for office or evening"
-- "Most versatile — the neutral color goes with everything"
-- "Oversized fit means room for chunky sweaters underneath"
-- "Lightweight but warm — won't feel bulky on your commute"
+- "Warmest option here — quilt lining for serious cold"
+- "Budget pick at £35 — solid quality for the price"
+- "The dressy one — works for office or dinner out"
+- "Oversized fit leaves room for chunky sweaters underneath"
+- "Lightweight but warm — won't weigh you down on commute"
+- "Neutral color pairs with everything you own"
+- "Most coverage — longline hits below the knee"
+- "Statement piece — the hot pink stands out on grey days"
 
-**Don't be:**
-- Overly cheeky ("screams 'I'm not freezing'") — cute but useless
-- Vague aesthetic references ("Pinterest winter vibes") — doesn't help decide
-- Generic marketing ("perfect for winter") — says nothing
+**The pattern:** Lead with WHAT makes it different, not "pick this if you want X"
 
-Each card should have a DIFFERENT practical angle that helps compare options.
+Each card = different practical angle + different framing.
 
 ## Output Format
 
