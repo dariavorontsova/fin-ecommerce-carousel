@@ -21,23 +21,18 @@ export function ProductCard({
     onClick?.(product);
   };
 
-  // Format price with currency
+  // Format price with currency - drop .00 for whole numbers
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: product.currency,
-      minimumFractionDigits: 2,
+      minimumFractionDigits: price % 1 === 0 ? 0 : 2,
+      maximumFractionDigits: 2,
     }).format(price);
   };
 
-  // Compact price format (no decimals if whole number)
-  const formatPriceCompact = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: product.currency,
-      minimumFractionDigits: price % 1 === 0 ? 0 : 2,
-    }).format(price);
-  };
+  // Compact price format (same as formatPrice now)
+  const formatPriceCompact = formatPrice;
 
   // Get badge info - using consistent frosted glass style
   const getBadge = () => {
