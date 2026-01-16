@@ -750,8 +750,19 @@ Select the best products AND write a response that references them by name. Retu
     const data = await response.json();
     const result: RerankAndRespondResult = JSON.parse(data.choices[0].message.content);
 
-    console.log('[RerankAndRespond] Selected:', result.selected_ids.length, 'products');
-    console.log('[RerankAndRespond] Response preview:', result.response.intent_acknowledgment?.substring(0, 50) + '...');
+    console.log('[RerankAndRespond] Selected IDs:', result.selected_ids);
+    console.log('[RerankAndRespond] Candidate IDs:', candidateInfo.map(c => c.id).slice(0, 10), '...');
+    console.log('[RerankAndRespond] Selected count:', result.selected_ids.length, 'products');
+
+    // Validate that selected IDs exist in candidates
+    const validIds = result.selected_ids.filter(id => 
+      candidateInfo.some(c => c.id === id)
+    );
+    if (validIds.length < result.selected_ids.length) {
+      console.warn('[RerankAndRespond] WARNING: Some selected IDs not found in candidates!');
+      console.warn('  Selected:', result.selected_ids);
+      console.warn('  Valid:', validIds);
+    }
 
     return result;
   } catch (error) {
@@ -927,10 +938,16 @@ export async function queryFin(
           rerankResult.product_insights.map(p => [p.id, p])
         );
         
+        console.log('[QueryFin] Reranker selected IDs:', rerankResult.selected_ids);
+        console.log('[QueryFin] Search result product IDs:', searchResult.products.map(p => p.id).slice(0, 10), '...');
+        
         const selectedProducts = rerankResult.selected_ids
           .map(id => {
             const product = searchResult.products.find(p => p.id === id);
-            if (!product) return undefined;
+            if (!product) {
+              console.warn('[QueryFin] Product ID not found in search results:', id);
+              return undefined;
+            }
             
             // Attach card_reason as aiReasoning for display on cards
             const insight = insightsMap.get(id);
@@ -941,6 +958,7 @@ export async function queryFin(
           })
           .filter((p): p is Product => p !== undefined);
 
+        console.log('[QueryFin] Final product count:', selectedProducts.length);
         products = selectedProducts;
 
         // Use response from Stage 2b (which references actual products)
