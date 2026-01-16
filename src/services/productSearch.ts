@@ -453,15 +453,21 @@ export async function searchProducts(options: SearchOptions = {}): Promise<Searc
   // Apply explicit subcategory filter if provided
   if (options.subcategory) {
     const subcatResults = results.filter(p => p.subcategory === options.subcategory);
+    console.log(`[Search] Subcategory filter "${options.subcategory}": ${subcatResults.length} of ${results.length} products`);
     if (subcatResults.length > 0) {
       results = subcatResults;
+    } else {
+      console.warn(`[Search] No products found for subcategory "${options.subcategory}", keeping ${results.length} unfiltered`);
     }
+  } else if (options.query) {
+    console.log(`[Search] No subcategory filter, searching ${results.length} products by query: "${options.query}"`);
   }
   
   // Filter by search modifiers (color, brand, style words)
   // PERMISSIVE for coarse retrieval: If modifiers match, use them. Otherwise, keep category results.
   // The LLM reranker will handle semantic matching for modifiers like "summer", "casual", etc.
   if (searchModifiers.length > 0) {
+    console.log(`[Search] Applying modifiers: [${searchModifiers.join(', ')}]`);
     const modifierMatched = results.filter(p => {
       // Build comprehensive search text including color variants
       const colorVariant = p.variants?.find(v => v.type === 'color');
@@ -469,6 +475,7 @@ export async function searchProducts(options: SearchOptions = {}): Promise<Searc
       const searchText = `${p.name} ${p.description} ${p.brand} ${colors}`.toLowerCase();
       return searchModifiers.some(mod => searchText.includes(mod));
     });
+    console.log(`[Search] Modifier filter matched: ${modifierMatched.length} products`);
     // Only apply modifier filter if we found matches
     // Otherwise keep the category-filtered results for LLM reranking
     if (modifierMatched.length > 0) {
