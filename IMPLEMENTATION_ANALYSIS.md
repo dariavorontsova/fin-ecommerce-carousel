@@ -666,7 +666,105 @@ if (aiReasoningMode && product.card_reason) {
 
 ---
 
-### Priority 8 (Deferred): Update Mock Mode
+### Priority 8: Page Context (PDP Awareness)
+
+**What**: Add page context selector so LLM knows if user is viewing a specific product
+
+**Why**: When on a Product Details Page, queries like "find matching socks" or "something similar" refer to the product being viewed. Without this context, the LLM can't interpret these correctly.
+
+**Key insight**: Only PDP actually changes behavior. Home/Category pages don't provide specific product context.
+
+**UI Changes** (`src/App.tsx`):
+
+1. Add dropdown selector in settings panel:
+
+```typescript
+// State
+const [pageContext, setPageContext] = useState<'home' | 'category' | 'product'>('home');
+const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
+
+// UI - Dropdown
+<Select value={pageContext} onValueChange={setPageContext}>
+  <SelectItem value="home">Home Page</SelectItem>
+  <SelectItem value="category">Category Page</SelectItem>
+  <SelectItem value="product">Product Details Page</SelectItem>
+</Select>
+
+// When "product" selected, show product picker
+{pageContext === 'product' && (
+  <Select value={viewingProduct?.id} onValueChange={(id) => setViewingProduct(findProduct(id))}>
+    {allProducts.slice(0, 20).map(p => (
+      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+    ))}
+  </Select>
+)}
+```
+
+2. Pass to queryFin:
+
+```typescript
+await queryFin(content, history, {
+  ...context,
+  pageContext,
+  viewingProduct: pageContext === 'product' ? viewingProduct : null
+});
+```
+
+**Prompt Changes** (`src/services/openai.ts`):
+
+Add to SYSTEM_PROMPT:
+
+```typescript
+## Page Context
+
+The user may be viewing a specific page. This affects how to interpret their query.
+
+**If page_type is "product" and a viewingProduct is provided**:
+- User is on a Product Details Page viewing a specific item
+- Queries like "matching", "similar", "goes with this", "something like this but..." refer to the viewed product
+- Include the viewed product context in your reasoning
+
+**If page_type is "home" or "category"**:
+- No specific product context
+- "Matching socks" → matching to WHAT? Need to clarify
+- "Something similar" → similar to WHAT? Need to clarify
+
+Example:
+- Page: PDP viewing "ASOS Blue Cotton Shirt"
+- Query: "What pants would go with this?"
+- → Search for pants that complement a blue cotton shirt (no clarification needed)
+```
+
+**Context format passed to LLM**:
+
+```json
+{
+  "page_context": {
+    "type": "product",
+    "viewing_product": {
+      "name": "ASOS Blue Cotton Shirt",
+      "description": "Classic fit cotton shirt in light blue",
+      "category": "shirts",
+      "price": 35
+    }
+  }
+}
+```
+
+**Test cases**:
+
+| Page | Query | Expected |
+|------|-------|----------|
+| PDP (Blue Shirt) | "What pants would match?" | Shows pants that go with blue shirts |
+| PDP (Blue Shirt) | "Something similar but cheaper" | Shows similar shirts, lower price |
+| Home | "What pants would match?" | Clarify: "Match with what?" |
+| Category (Dresses) | "Something cheaper" | Could infer: cheaper dresses (weak signal) |
+
+**Note**: For the prototype, Home and Category behave the same (no specific product). Only PDP changes behavior.
+
+---
+
+### Priority 9 (Deferred): Update Mock Mode
 
 **What**: Make `queryFinMock` consistent with new behavior
 
@@ -706,8 +804,10 @@ if (aiReasoningMode && product.card_reason) {
 | Section | Change |
 |---------|--------|
 | Component state | Add `productsShownThisSession` state (Priority 3) |
+| Component state | Add `pageContext` and `viewingProduct` state (Priority 8) |
 | `handleSend` | Track shown products, pass to queryFin, attach card_reason to products (Priorities 3, 7) |
 | `clearConversation` | Also clear shown products (Priority 3) |
+| Settings panel | Add page context dropdown + product selector when PDP (Priority 8) |
 
 ### `src/components/ProductCard.tsx` (or card component)
 
@@ -746,6 +846,7 @@ These MUST work before considering the fix complete:
 | Contextual follow-ups | Follow-up suggestions relate to actual products/query |
 | Variety in results | 4-6 products with different price points/styles |
 | AI Reasoning on Cards | Toggle ON → cards show brief contextual reason instead of star rating |
+| Page Context (PDP) | On PDP viewing blue shirt, "what matches?" → shows matching items without clarifying |
 
 ### Regression Tests (Must Not Break)
 
@@ -824,11 +925,23 @@ Execute in this exact order:
     - Cards should show brief contextual reason
     - NOT star ratings or generic description
 
+### Day 2 (Optional): Page Context
+
+18. **Add page context dropdown** to settings panel (Priority 8)
+    - Options: Home Page, Category Page, Product Details Page
+19. **Add product selector** shown only when PDP selected (Priority 8)
+20. **Update queryFin** to pass page context to LLM (Priority 8)
+21. **Add page context handling to SYSTEM_PROMPT** (Priority 8)
+
+22. **Test**: Select "Product Details Page", pick a blue shirt, query "what pants would match?"
+    - Should show pants that go with blue shirts
+    - Should NOT ask "match with what?"
+
 ### Day 2: Cleanup
 
-18. **Remove response fields from Stage 1 schema** (Priority 6)
-19. **Run full test suite** (Section 6)
-20. **Fix any regressions**
+23. **Remove response fields from Stage 1 schema** (Priority 6)
+24. **Run full test suite** (Section 6)
+25. **Fix any regressions**
 
 ---
 
