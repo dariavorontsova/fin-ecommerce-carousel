@@ -567,7 +567,7 @@ The card_reason is displayed ON each product card. This is where AI proves it UN
 2. **SPECIFIC ATTRIBUTE** — The actual feature that serves their need (material, design detail, fit)
 3. **EVIDENCE/PROOF** — Why it works (rating, reviews, popularity, material quality, design reason)
 
-**The formula**: `[Item type] — [specific attribute for need]. [Evidence/proof].`
+**The formula**: "[Item type] — [specific attribute for need]. [Evidence/proof]."
 
 **Length**: 2-3 lines (~20-30 words). Be informative, not salesy.
 
