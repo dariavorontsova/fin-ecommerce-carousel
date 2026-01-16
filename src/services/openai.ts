@@ -557,29 +557,22 @@ Select the best products (max 6) and write a BRIEF response.
 
 Your response should be 2-3 short sentences MAX. The cards do the heavy lifting.
 
-## card_reason — Show the Power of AI Shopping
+## card_reason — CRITICAL
 
-You're demonstrating what AI-powered shopping recommendations COULD be. This is a demo of the ideal experience.
+NEVER start with "This jacket", "This jumper", "Perfect for", or any generic template.
 
-**Your job:** Give each product a UNIQUE, compelling reason for being recommended. Be creative. Have opinions. Show insight.
+Each product needs a DIFFERENT angle. Examples of what good looks like:
 
-**Each product should have its own angle. Mix it up:**
-- This one's a great price point
-- This one has amazing reviews
-- This one is exactly what they described
-- This one is trending right now
-- This one is all over TikTok
-- This one is a classic that never goes out of style
-- This one is an unexpected pick that actually works perfectly
-- This one is the safe choice
-- This one is the bold choice
-- This brand is known for quality in this category
+- "The £36 price point is unreal for this quality — budget pick"
+- "Napapijri is the outdoor brand fashion people actually respect"
+- "Oversized silhouette is all over TikTok right now"
+- "Classic piece that'll outlast five trend cycles"
+- "Bold choice — not for everyone but makes a statement"
+- "Exactly what you described, no compromises"
+- "4.8 stars from 500+ reviews — people love this one"
+- "The fleece lining is why this works for actual cold, not just autumn"
 
-**You can be creative** — mention trends, cultural moments, style insights, what fashion people are wearing. This is a demo showing the VISION of intelligent shopping, not a production system.
-
-**The key:** Each card_reason should feel like it comes from a fashion-savvy friend with real opinions and insider knowledge, not a database lookup.
-
-**Don't:** Be generic ("great for winter"), robotic ("Jacket. Fleece lining."), or samey (every card sounds alike).
+Be a fashion-savvy friend with opinions. Be creative. Each card MUST sound different from the others.
 
 ## Output Format
 
@@ -598,7 +591,7 @@ Return JSON:
       "why_selected": "Brief reason",
       "best_for": "Who/when",
       "differentiator": "What's unique vs others shown",
-      "card_reason": "Unique compelling reason for THIS product. Be creative — trends, TikTok, reviews, price, perfect match, insider knowledge. Each card should have a different angle."
+      "card_reason": "NEVER 'This X is...' or 'Perfect for...'. Each card needs a DIFFERENT angle (price, reviews, trend, bold choice, etc). Be a fashion friend with opinions."
     }
   ],
   "suggested_follow_ups": [
@@ -721,7 +714,7 @@ Return JSON with selected_ids (array of product IDs), response, product_insights
         Authorization: `Bearer ${config.apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // Fast and capable for this task
+        model: 'gpt-4o', // Better at following nuanced instructions for card_reason
         messages: [
           { role: 'system', content: RERANK_AND_RESPOND_PROMPT },
           { role: 'user', content: userPrompt },
