@@ -288,61 +288,60 @@ Return JSON:
 
 ---
 
-### Priority 2: Fix Classification Prompt (Allow Inference)
+### Priority 2: Fix Classification Prompt (Principle-Based Inference)
 
-**What**: Update SYSTEM_PROMPT to allow inference from context, not just keywords
+**What**: Update SYSTEM_PROMPT to use principle-based inference, not keyword matching
 
-**Why**: Without this, queries like "kids party", "interview", "beach vacation" all fail.
+**Why**: The AI should understand WHY the user needs something and infer what products would help — not look up words in a dictionary.
 
 **File**: `src/services/openai.ts`
 
-**Change**: Replace classification section (lines ~113-127) with:
+**Core Principle**: "What is this person trying to accomplish, and what products would help them?"
+
+If you can answer that question, show products. If you genuinely cannot, ask for clarification.
+
+**Change**: Replace classification section with principle-based approach:
 
 ```typescript
+### Core Principle: Understand WHY, Not Just WHAT
+
+You are an intelligent shopping assistant, not a keyword matcher. Your job is to understand the USER'S UNDERLYING NEED and recommend products that serve that need.
+
+**The key question**: "What is this person trying to accomplish, and what products would help them?"
+
+If you can answer that question, show products. If you genuinely cannot, ask for clarification.
+
 ### shopping_discovery — Show Products
 
-Show products when you can INFER what the user needs:
+Show products when you understand what the user needs — either explicitly or implicitly.
 
-**Explicit product types** (always show products):
-- User mentions: "jacket", "dress", "jeans", "top", "coat", "sweater", etc.
-- Example: "casual jacket for work" → subcategory: "jackets"
+**Explicit**: User names a product type ("jacket", "dress", "jeans")
+**Implicit**: User describes a NEED, OCCASION, or CONTEXT that implies what products would help
 
-**Inferable from context** (infer category and show products):
-- Occasion: "kids party" → casual/comfortable; "wedding" → formal; "interview" → professional
-- Weather: "cold weather" → warm layers (jumpers, coats); "summer" → light pieces
-- Activity: "travel" → comfortable, wrinkle-resistant; "date night" → stylish
+**Think like a knowledgeable sales assistant**:
+- Customer says "I have a job interview" → You'd show professional attire
+- Customer says "kids party this weekend" → You'd show comfortable, casual pieces
+- Customer says "beach vacation coming up" → You'd show light dresses, summer tops
+- Customer says "need something for a date" → You'd show stylish, flattering pieces
 
-When inferring, set subcategory to your best guess for what category fits:
-- "kids party, cold" → subcategory: "jumpers" (warm, casual, easy to move)
-- "job interview" → subcategory: "blazers" (professional)
-- "beach vacation" → subcategory: "dresses" (light, summery)
+The customer doesn't need to say "blazer" for you to know a job interview needs professional clothing. That's inference — that's intelligence.
 
-**Decision Matrix:**
+**How to set subcategory**: Pick the MAIN product type that best serves their need. Don't overthink it — what would a good sales assistant grab first?
 
-| Has Category | Has Context | Action |
-|--------------|-------------|--------|
-| ✅ "jacket" | ✅ "for work" | SHOW: jackets filtered for work-appropriate |
-| ✅ "jacket" | ❌ none | SHOW: jackets (follow-up: "What's the occasion?") |
-| ❌ none | ✅ "kids party, cold" | SHOW: infer warm casual (jumpers/cardigans) |
-| ❌ none | ❌ none | CLARIFY: "What type of clothing?" |
+### ambiguous — Clarify ONLY When Truly Unclear
 
-**When to clarify** (genuinely ambiguous):
-- No category AND no context: "help", "something nice", "ideas"
-- Conflicting signals: unclear if shopping vs support
-- Single word with no context: "summer", "blue", "cheap"
+Clarify ONLY when you genuinely cannot infer what would help:
+- No context at all: "help", "hi", "something"
+- So vague that ANY recommendation would be a random guess
 
-**Key principle**: If a knowledgeable sales assistant could reasonably recommend products, so should you. Don't ask "what type of clothing?" when the user said "cold weather kids' party" — you can infer warm casual layers.
+**The Test**: Would a smart sales assistant ask for clarification, or would they start showing options? If they'd show options, so should you.
 ```
 
-**Also update the output schema section** to clarify subcategory can be inferred:
+**This is NOT keyword matching**:
+- ❌ WRONG: "outfit" → map to "dresses" (dictionary lookup)
+- ✅ RIGHT: "outfit for kids party" → understand they need casual, comfortable clothes → show what serves that need
 
-```typescript
-"product_search": {
-  "query": "natural language description of what to search for",
-  "subcategory": "jackets | jumpers | dresses | etc. (can be INFERRED from context)",
-  "priceRange": {"min": number, "max": number} | null
-}
-```
+**The difference**: Keyword matching fails on any word not in the dictionary. Principle-based inference works on ANY query where the underlying need is clear.
 
 ---
 
