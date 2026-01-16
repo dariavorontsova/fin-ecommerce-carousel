@@ -188,6 +188,96 @@ User Query + Conversation Context
 Response with ACCURATE product references
 ```
 
+### Session State: The First-Level Decision (Support vs Shopping)
+
+Fin is built on top of a **support agent** — it needs to intelligently handle BOTH support AND shopping, and know when to switch between them.
+
+**The Key Insight**: The LLM should be the decision-maker, not hardcoded rules.
+
+#### Session State Structure
+
+```typescript
+interface SessionState {
+  // Current conversation mode - LLM determines and updates this
+  conversationMode: 'neutral' | 'support' | 'shopping';
+  
+  // If in support mode, what issue?
+  supportContext?: {
+    issueType: string; // 'return', 'order_tracking', 'complaint', 'account'
+    resolved: boolean;
+  };
+  
+  // Shopping context for refinements
+  shoppingContext?: {
+    subcategory: string;
+    query: string;
+    constraints: string[];
+  };
+  
+  // Products shown (for "show more" and avoiding repeats)
+  productsShownThisSession: string[];
+}
+```
+
+#### How It Works
+
+```
+User Message + Full Conversation History + Session State
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────┐
+│ LLM: "Given everything, what does this user need?"          │
+│                                                             │
+│ Inputs:                                                     │
+│ • Current message                                           │
+│ • Conversation history                                      │
+│ • Session state (mode, support context, shopping context)   │
+│                                                             │
+│ Outputs:                                                    │
+│ • Intent classification                                     │
+│ • session_state_update (LLM decides mode changes)           │
+│ • Action to take                                            │
+└─────────────────────────────────────────────────────────────┘
+    │
+    ├── Mode: SUPPORT ─────────────────────────────────────────┐
+    │   • Text response with helpful support info              │
+    │   • NO products (would be tone-deaf)                     │
+    │   • LLM sets: supportContext.resolved = false            │
+    │                                                          │
+    ├── Mode: SHOPPING ────────────────────────────────────────┤
+    │   • Search → Rerank → Show products                      │
+    │   • LLM sets: shoppingContext with search details        │
+    │                                                          │
+    ├── Mode: AMBIGUOUS ───────────────────────────────────────┤
+    │   • Ask clarifying question                              │
+    │   • NO products                                          │
+    │                                                          │
+    └── Transition: SUPPORT → SHOPPING ────────────────────────┘
+        • User confirms support issue resolved                  
+        • LLM sets: supportContext.resolved = true              
+        • Can now show products                                 
+```
+
+#### LLM Decides Mode Transitions
+
+**This is NOT keyword matching.** The LLM understands the full conversation and decides:
+
+| Scenario | LLM Decision |
+|----------|--------------|
+| "Where's my order?" | mode → support, issueType: order_tracking |
+| "I need to return this" | mode → support, issueType: return |
+| User: "show me jackets" (while support active) | Check if support resolved first, then maybe shopping |
+| User: "thanks, that's all I needed" | supportContext.resolved → true, mode → neutral |
+| "Show me jackets" (fresh start) | mode → shopping |
+| "Something cheaper" (after shopping) | refinement, use shoppingContext |
+
+#### Why This Matters
+
+1. **Support issues aren't dismissed**: If user has an active return request and asks "show me jackets", the LLM acknowledges the support issue before pivoting
+2. **Refinements work**: The LLM knows the previous shopping context and can apply modifications
+3. **No tone-deaf product pushing**: During active support issues, products aren't shown
+4. **Natural transitions**: LLM decides when it's appropriate to transition from support to shopping
+
 ---
 
 ## 4. Implementation Plan
@@ -854,6 +944,27 @@ These MUST work before considering the fix complete:
 | "jacket" (explicit keyword) | Shows jackets | Basic keyword still works |
 | "I need to return" | Support response | Support detection unchanged |
 | "Is the [product] available in size M?" | Single card + answer | Product inquiry works |
+
+### Support vs Shopping Tests (Session State)
+
+These test the first-level decision and conversation flow:
+
+| # | Scenario | Queries | Expected Behavior |
+|---|----------|---------|-------------------|
+| 1 | **Clear support** | "Where is my order?" | Support response, NO products. Session mode → support |
+| 2 | **Clear shopping** | "Show me jackets" | Shows products. Session mode → shopping |
+| 3 | **Support → Shopping** | 1. "I need to return this"<br>2. "Actually, show me dresses" | 1. Support response<br>2. Acknowledge, then show dresses |
+| 4 | **Shopping → Support** | 1. "Show me jackets"<br>2. "Actually where's my order?" | 1. Shows jackets<br>2. Support response, NO products |
+| 5 | **Hybrid intent** | "Return this and show me a replacement" | Acknowledge return, then offer to show products |
+| 6 | **Return policy (borderline)** | "What's your return policy?" | Support: provide policy info, no products |
+| 7 | **Size question (borderline)** | "What size should I get?" | Shopping: might show products or size guidance |
+| 8 | **Refinement** | 1. "Show me jackets"<br>2. "Something cheaper" | Uses shopping context, shows lower-priced jackets |
+
+**How to Validate Session State**:
+- Check debug panel in sidebar shows correct mode
+- Support context shows issue type (return, order_tracking, etc.)
+- Shopping context shows last subcategory searched
+- Mode transitions happen when expected
 
 ---
 
