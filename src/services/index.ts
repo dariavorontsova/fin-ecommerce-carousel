@@ -15,6 +15,9 @@ export {
   type FinResponse,
   type IntentType,
   type RendererType,
+  type SessionState,
+  type SessionStateUpdate,
+  type ConversationMode,
 } from './openai';
 
 export {

@@ -12,6 +12,44 @@ import { searchProducts } from './productSearch';
 
 export type IntentType = 'shopping_discovery' | 'support' | 'ambiguous' | 'refinement';
 export type RendererType = 'text_only' | 'single_card' | 'carousel';
+export type ConversationMode = 'neutral' | 'support' | 'shopping';
+
+// Session state - tracks the conversation mode and context
+// This is passed to the LLM and updated based on LLM decisions
+export interface SessionState {
+  // Current conversation mode - LLM determines and updates this
+  conversationMode: ConversationMode;
+  
+  // If in support mode, what issue?
+  supportContext?: {
+    issueType: string; // 'return', 'order_tracking', 'complaint', 'account', etc.
+    resolved: boolean;
+  };
+  
+  // Shopping context for refinements
+  shoppingContext?: {
+    subcategory: string;
+    query: string;
+    constraints: string[];
+  };
+  
+  // Products shown (for "show more" and avoiding repeats)
+  productsShownThisSession: string[];
+}
+
+// LLM tells us how to update session state
+export interface SessionStateUpdate {
+  conversationMode: ConversationMode;
+  supportContext?: {
+    issueType: string;
+    resolved: boolean;
+  } | null;
+  shoppingContext?: {
+    subcategory: string;
+    query: string;
+    constraints: string[];
+  } | null;
+}
 
 export interface LLMIntent {
   primary: IntentType;
@@ -68,6 +106,8 @@ export interface LLMResponse {
   response: LLMResponseFields;
   suggested_follow_ups: SuggestedFollowUp[];
   reasoning: LLMReasoning;
+  // Session state update - LLM tells us how to update conversation state
+  session_state_update: SessionStateUpdate;
 }
 
 export interface ConversationMessage {
@@ -80,8 +120,10 @@ export interface ConversationContext {
   cart_items?: number;
   user_status?: 'new' | 'returning' | 'vip';
   previous_purchases?: string[];
-  productsShownThisSession?: string[]; // Track shown products to avoid repeats
   viewingProduct?: Product; // For PDP context - the product user is viewing
+  // Session state - the LLM uses this to understand conversation context
+  // and outputs an update to tell us how to change it
+  sessionState?: SessionState;
 }
 
 export interface FinResponse {
@@ -94,6 +136,8 @@ export interface FinResponse {
     llm: number;
     search: number;
   };
+  // Session state update from LLM - caller should use this to update their state
+  sessionStateUpdate: SessionStateUpdate;
 }
 
 // ============================================================================
@@ -110,15 +154,72 @@ When users want to discover, browse, or buy products, you help them find what th
 ### Role 2: Support Agent
 When users need help with orders, returns, accounts, or policies, you provide helpful, knowledgeable support responses.
 
+## Session State: Understanding Conversation Context
+
+You receive session state that tells you where this conversation currently stands:
+
+**conversation_mode**: 'neutral' | 'support' | 'shopping'
+- neutral: Fresh conversation, no established context
+- support: User has an active support issue (return, complaint, order problem, etc.)
+- shopping: User has been browsing/shopping
+
+**support_context** (if mode is 'support'):
+- issue_type: What kind of support issue (return, order_tracking, complaint, account, etc.)
+- resolved: Whether the issue has been resolved
+
+**shopping_context** (if mode is 'shopping'):
+- subcategory: What they were looking at (jackets, dresses, etc.)
+- query: Their last search
+- constraints: Any constraints mentioned (color, price, etc.)
+
+**products_shown_this_session**: IDs of products already shown (to avoid repeats)
+
+### How to Use Session State
+
+1. **If conversation_mode is 'support' and support is NOT resolved**:
+   - User may still need help with their issue
+   - If they ask about shopping, acknowledge but check if their support issue is resolved first
+   - Example: If they asked about a return and then say "show me jackets", respond: "Happy to show you jackets! Just to confirm — did you want to continue with the return process, or shall we move on to shopping?"
+
+2. **If conversation_mode is 'shopping'**:
+   - Use shopping_context for refinement queries like "cheaper", "different color", "show more"
+   - These refer to the previous search context
+
+3. **If conversation_mode is 'neutral'**:
+   - Fresh start, classify intent normally
+
+### Session State Update: YOU Decide When Mode Changes
+
+You must output a session_state_update that tells us how the conversation state should change.
+
+**When to set mode to 'support'**:
+- User raises a post-purchase issue (return, complaint, order problem)
+- Set support_context with the issue type
+- resolved: false initially
+
+**When to set support_context.resolved to true**:
+- User confirms they're done with the support issue
+- User explicitly moves on to something else ("actually, show me jackets" without returning to support)
+- User says "thanks, that's all I needed" or similar
+
+**When to set mode to 'shopping'**:
+- User starts browsing for products
+- Set shopping_context with what they're looking for
+
+**When to set mode to 'neutral'**:
+- User explicitly starts fresh or conversation has no active context
+
 ## Intent Classification
 
 ### Core Principle: Understand WHY, Not Just WHAT
 
-You are an intelligent shopping assistant, not a keyword matcher. Your job is to understand the USER'S UNDERLYING NEED and recommend products that serve that need.
+You are an intelligent assistant, not a keyword matcher. Your job is to understand the USER'S UNDERLYING NEED.
 
-**The key question**: "What is this person trying to accomplish, and what products would help them?"
+**The key question**: "What is this person trying to accomplish?"
 
-If you can answer that question, show products. If you genuinely cannot, ask for clarification.
+- If they need HELP with a purchase/order/account → support
+- If they want to FIND/BUY products → shopping
+- If genuinely unclear → clarify
 
 ### shopping_discovery — Show Products
 
@@ -255,8 +356,23 @@ Always respond with a JSON object in this exact format:
   "reasoning": {
     "intent_explanation": "Why this classification",
     "selection_reasoning": "Brief note on what products would fit"
+  },
+
+  "session_state_update": {
+    "conversation_mode": "neutral" | "support" | "shopping",
+    "support_context": {
+      "issue_type": "return | order_tracking | complaint | account | refund | exchange",
+      "resolved": true | false
+    } | null,
+    "shopping_context": {
+      "subcategory": "jackets | dresses | etc.",
+      "query": "what they searched for",
+      "constraints": ["any constraints like color, price range"]
+    } | null
   }
 }
+
+IMPORTANT: session_state_update is REQUIRED. You decide how the conversation state should change based on this message.
 
 NOTE: For shopping_discovery, the actual response text is generated in Stage 2 AFTER products are selected. 
 Stage 1 response fields are only used for support and ambiguous intents.
@@ -651,8 +767,10 @@ export async function queryFin(
   let llmEndTime: number;
   let searchEndTime: number;
 
-  // Build context string for LLM
+  // Build context string for LLM - includes session state
   let contextString = '';
+  
+  // Page context
   if (context.page_type) {
     contextString += `Page: ${context.page_type}`;
   }
@@ -660,10 +778,29 @@ export async function queryFin(
     contextString += `\nViewing product: "${context.viewingProduct.name}" (${context.viewingProduct.subcategory}, ${context.viewingProduct.brand}, £${context.viewingProduct.price})`;
   }
   
+  // Session state - THIS IS KEY: pass full session state to LLM
+  if (context.sessionState) {
+    const ss = context.sessionState;
+    contextString += `\n\nSession State:`;
+    contextString += `\n- conversation_mode: ${ss.conversationMode}`;
+    
+    if (ss.supportContext) {
+      contextString += `\n- support_context: { issue_type: "${ss.supportContext.issueType}", resolved: ${ss.supportContext.resolved} }`;
+    }
+    
+    if (ss.shoppingContext) {
+      contextString += `\n- shopping_context: { subcategory: "${ss.shoppingContext.subcategory}", query: "${ss.shoppingContext.query}", constraints: [${ss.shoppingContext.constraints.map(c => `"${c}"`).join(', ')}] }`;
+    }
+    
+    if (ss.productsShownThisSession.length > 0) {
+      contextString += `\n- products_shown_this_session: ${ss.productsShownThisSession.length} products already shown (avoid repeats)`;
+    }
+  }
+  
   // Build messages array for OpenAI
   const messages = [
     { role: 'system' as const, content: SYSTEM_PROMPT },
-    // Add page context if viewing a product
+    // Add context (page + session state)
     ...(contextString
       ? [{ role: 'system' as const, content: `Current context:\n${contextString}` }]
       : []),
@@ -717,13 +854,14 @@ export async function queryFin(
     if (llmResponse.decision.show_products && llmResponse.product_search) {
       // Step 1: Coarse retrieval - get candidates by category
       // Exclude products already shown this session (for "show more" / "different options")
+      const excludeIds = context.sessionState?.productsShownThisSession || [];
       const searchResult = await searchProducts({
         query: llmResponse.product_search.query,
         subcategory: llmResponse.product_search.subcategory,
         maxResults: 30, // Get many candidates for reranking
         minPrice: llmResponse.product_search.priceRange?.min,
         maxPrice: llmResponse.product_search.priceRange?.max,
-        excludeIds: context.productsShownThisSession,
+        excludeIds,
       });
 
       if (searchResult.products.length > 0) {
@@ -805,6 +943,14 @@ export async function queryFin(
     }
     searchEndTime = performance.now();
 
+    // Get session state update from LLM (with fallback)
+    const sessionStateUpdate: SessionStateUpdate = llmResponse.session_state_update || {
+      conversationMode: llmResponse.intent.primary === 'support' ? 'support' : 
+                       llmResponse.intent.primary === 'shopping_discovery' ? 'shopping' : 'neutral',
+      supportContext: null,
+      shoppingContext: null,
+    };
+
     return {
       llmResponse,
       products,
@@ -815,6 +961,7 @@ export async function queryFin(
         llm: llmEndTime - startTime,
         search: searchEndTime - llmEndTime,
       },
+      sessionStateUpdate,
     };
   } catch (error) {
     llmEndTime = performance.now();
@@ -884,6 +1031,11 @@ export async function queryFinMock(
   let responseText: string;
 
   if (isSupport) {
+    // Determine support issue type
+    const issueType = lowerMessage.includes('return') || lowerMessage.includes('refund') ? 'return' :
+                     lowerMessage.includes('tracking') || lowerMessage.includes('order') ? 'order_tracking' :
+                     lowerMessage.includes('account') || lowerMessage.includes('password') ? 'account' : 'general';
+    
     // Support intent
     llmResponse = {
       intent: {
@@ -917,6 +1069,11 @@ export async function queryFinMock(
       reasoning: {
         intent_explanation: 'User mentioned support-related keywords',
         selection_reasoning: 'No products shown for support queries',
+      },
+      session_state_update: {
+        conversationMode: 'support',
+        supportContext: { issueType, resolved: false },
+        shoppingContext: null,
       },
     };
     responseText = "I understand you need help with your order. Could you please provide your order number so I can look into this for you?";
@@ -958,6 +1115,15 @@ export async function queryFinMock(
         intent_explanation: `User mentioned ${detectedCategory}`,
         selection_reasoning: 'Showing variety of options in the category',
       },
+      session_state_update: {
+        conversationMode: 'shopping',
+        supportContext: null,
+        shoppingContext: {
+          subcategory: detectedCategory,
+          query: userMessage,
+          constraints: [],
+        },
+      },
     };
     responseText = `I see you're looking for ${detectedCategory}. I've selected a range of popular options with good reviews and variety in style. These offer different looks from casual to more polished. Any particular style or price range in mind?`;
   } else {
@@ -996,6 +1162,11 @@ export async function queryFinMock(
         intent_explanation: 'Query too vague to determine product type',
         selection_reasoning: 'Asking for clarification to provide relevant results',
       },
+      session_state_update: {
+        conversationMode: 'neutral',
+        supportContext: null,
+        shoppingContext: null,
+      },
     };
     responseText = "I'd love to help you find something! Are you looking for a specific type of clothing, like jackets, dresses, or tops?";
   }
@@ -1029,5 +1200,6 @@ export async function queryFinMock(
       llm: llmEndTime - startTime,
       search: searchEndTime - llmEndTime,
     },
+    sessionStateUpdate: llmResponse.session_state_update,
   };
 }

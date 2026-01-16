@@ -12,6 +12,7 @@ import {
   searchProducts,
   isCached,
   SearchResult,
+  SessionState,
 } from './services';
 
 // shadcn/ui components
@@ -107,8 +108,12 @@ function App() {
   const conversationHistoryRef = useRef<ConversationMessage[]>([]);
   const llmConfigured = isConfigured();
   
-  // Conversation memory: track products shown to avoid repeats
-  const [productsShownThisSession, setProductsShownThisSession] = useState<string[]>([]);
+  // Session state: tracks conversation mode, support context, shopping context
+  // This is the key for intelligent conversation handling
+  const [sessionState, setSessionState] = useState<SessionState>({
+    conversationMode: 'neutral',
+    productsShownThisSession: [],
+  });
   
   // Page context: simulate which page user is on (affects query interpretation)
   const [pageContext, setPageContext] = useState<'home' | 'category' | 'product'>('home');
@@ -169,25 +174,43 @@ function App() {
       let response: FinResponse;
 
       if (llmConfigured) {
-        // Pass context including products already shown and page context
+        // Pass full context including session state
         response = await queryFin(content, history, {
-          productsShownThisSession,
           page_type: pageContext,
           viewingProduct: pageContext === 'product' && viewingProduct ? viewingProduct : undefined,
+          sessionState, // Pass full session state to LLM
         });
       } else {
         // Use mock mode
-        response = await queryFinMock(content, history);
+        response = await queryFinMock(content, history, { sessionState });
       }
 
       setLastResponse(response);
       
-      // Track products shown this session (for "show more" / "different options")
-      if (response.products.length > 0) {
-        setProductsShownThisSession(prev => [
+      // Update session state based on LLM response
+      // The LLM tells us how to update the state - we don't write rules here
+      if (response.sessionStateUpdate) {
+        const update = response.sessionStateUpdate;
+        setSessionState((prev: SessionState) => ({
+          conversationMode: update.conversationMode,
+          // Convert null to undefined for optional fields
+          supportContext: update.supportContext ?? undefined,
+          shoppingContext: update.shoppingContext ?? undefined,
+          // Keep tracking products shown (accumulate, don't replace)
+          productsShownThisSession: [
+            ...prev.productsShownThisSession,
+            ...response.products.map(p => p.id),
+          ],
+        }));
+      } else if (response.products.length > 0) {
+        // Fallback: just track products shown
+        setSessionState((prev: SessionState) => ({
           ...prev,
-          ...response.products.map(p => p.id)
-        ]);
+          productsShownThisSession: [
+            ...prev.productsShownThisSession,
+            ...response.products.map(p => p.id),
+          ],
+        }));
       }
 
       // Update conversation history
@@ -244,7 +267,7 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, llmConfigured, cardLayout, productsShownThisSession, pageContext, viewingProduct]);
+  }, [messages, llmConfigured, cardLayout, sessionState, pageContext, viewingProduct]);
 
   const toggleConfig = (key: keyof CardConfig) => {
     setCardConfig(prev => ({ ...prev, [key]: !prev[key] }));
@@ -252,7 +275,11 @@ function App() {
 
   const clearConversation = () => {
     setMessages([]);
-    setProductsShownThisSession([]); // Reset conversation memory
+    // Reset session state to fresh start
+    setSessionState({
+      conversationMode: 'neutral',
+      productsShownThisSession: [],
+    });
     clearSavedConversation();
   };
 
