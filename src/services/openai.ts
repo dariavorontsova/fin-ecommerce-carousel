@@ -521,16 +521,16 @@ interface AnthropicConfig {
   model: string;
 }
 
-// Auto-configure from environment variables
+// Auto-configure from environment variables - USE THE BEST MODELS
 const config: OpenAIConfig = {
   apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
-  model: 'gpt-4o', // Fast, capable, good for intent detection
+  model: 'gpt-5.1', // Latest OpenAI flagship - best reasoning
   temperature: 0.3,
 };
 
 const anthropicConfig: AnthropicConfig = {
   apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY || '',
-  model: 'claude-sonnet-4-20250514', // Excellent at natural writing and following instructions
+  model: 'claude-opus-4-5-20251101', // Best Claude model - state of the art reasoning & writing
 };
 
 export function isConfigured(): boolean {
@@ -755,7 +755,7 @@ Return JSON with selected_ids (array of product IDs), response, product_insights
       rawContent = data.content[0].text;
       
     } else {
-      console.log('[RerankAndRespond] Using OpenAI:', 'gpt-4o');
+      console.log('[RerankAndRespond] Using OpenAI:', 'gpt-5.1');
       
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -764,7 +764,7 @@ Return JSON with selected_ids (array of product IDs), response, product_insights
           Authorization: `Bearer ${config.apiKey}`,
         },
         body: JSON.stringify({
-          model: 'gpt-4o',
+          model: 'gpt-5.1',
           messages: [
             { role: 'system', content: RERANK_AND_RESPOND_PROMPT },
             { role: 'user', content: userPrompt },
