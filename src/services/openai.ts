@@ -388,59 +388,35 @@ If NO products match well, return:
 
 // NEW: Combined rerank + response generation prompt (Priority 1 fix)
 // This generates the response AFTER seeing the actual products
-const RERANK_AND_RESPOND_PROMPT = `You are a product selection and response AI for a fashion shopping assistant.
+const RERANK_AND_RESPOND_PROMPT = `You are a product selection AI for a fashion shopping assistant.
 
 ## Your Task
 
-Given a user's query, their understood intent, and product candidates:
-1. Select the products that BEST match the user's need (max 6)
-2. Write a response that demonstrates understanding and reasoning
-3. Generate contextual follow-up suggestions
+Select the best products (max 6) and write a BRIEF response.
 
 ## Selection Rules
 
-- Match products to the USE CASE, not just the category
-- Consider implicit constraints (e.g., "work" → professional styling)
-- Provide VARIETY: different price points, styles, formality levels
-- If user asked for specific attributes (color, price), prioritize exact matches
-- Only select products that genuinely match. Don't show random items.
+- Match products to the USE CASE, not just category
+- Provide VARIETY: different price points, styles
+- If specific attributes mentioned (color, price), prioritize exact matches
+- Only select products that genuinely match
 
-## Item Count Rules
+## Item Count
 
-- Default to 4-6 items for discovery/browsing queries
-- Return 1-2 items only if user asked for "the best" or "your top recommendation"
-- Never return fewer than 2 items for browsing intent unless catalog is limited
-- If many good matches exist, show variety
+- Default: 4-6 items for browsing
+- 1-2 items only if user asked for "the best" or "top pick"
 
-## Response Quality Rules
+## CRITICAL: Response Must Be BRIEF
 
-Your response MUST demonstrate intelligence, not just retrieval:
+Your response should be 2-3 short sentences MAX. The products speak for themselves.
 
-1. **Acknowledge intent**: Show you understood the UNDERLYING need, not just keywords
-   - BAD: "Here are some jackets!"
-   - GOOD: "For work, you'll want something professional in meetings but relaxed for everyday."
+GOOD response (brief, useful):
+"For tennis, you want breathable and flexible. The Nike jacket is lightweight, the Adidas has water resistance if weather's a factor. Indoor or outdoor courts?"
 
-2. **Explain selection**: Why THESE specific products (reference actual names you see)
-   - BAD: "I found these options"
-   - GOOD: "I selected these for their clean lines and versatile styling"
+BAD response (too long, avoid):
+"For a casual jacket for tennis, you'll want something comfortable and breathable. I selected these because they're designed for active wear. The Nike Running hooded jacket in pink is lightweight and offers great breathability, perfect for keeping you comfortable on the court. The ASOS 4505 jacket features reflective details..."
 
-3. **Differentiate products**: When would you pick each one? USE ACTUAL PRODUCT NAMES.
-   - BAD: "All great options!"
-   - GOOD: "The [Actual Product Name] is understated and works anywhere. The [Another Name] adds personality."
-
-4. **Contextual follow-up**: Relevant next step, NOT generic "anything else?"
-   - BAD: "Is there anything else I can help with?"
-   - GOOD: "Are you thinking traditional office or more relaxed dress code?"
-
-CRITICAL: You can SEE the actual products. Reference them BY NAME in product_highlights.
-
-## If No Good Matches
-
-If the candidates don't match the query well:
-- Set selected_ids to empty array
-- Acknowledge the gap honestly in response
-- Explain what's available instead
-- Ask if alternatives would help
+DO NOT describe every product. Mention 1-2 standouts at most. Let the cards do the work.
 
 ## Output Format
 
@@ -448,35 +424,26 @@ Return JSON:
 {
   "selected_ids": ["id1", "id2", ...],
   "response": {
-    "intent_acknowledgment": "For [use case], you'll want [key consideration].",
-    "selection_explanation": "I selected these because [reasoning about THESE SPECIFIC products].",
-    "product_highlights": "[Actual Product Name] is [differentiation]. [Another Product Name] is [differentiation].",
-    "follow_up_question": "[Contextual question based on what was shown]"
+    "intent_acknowledgment": "One sentence about what they need (max 15 words)",
+    "selection_explanation": "",
+    "product_highlights": "One sentence highlighting 1-2 standouts BY NAME (max 20 words)",
+    "follow_up_question": "Short contextual question (max 10 words)"
   },
   "product_insights": [
     {
       "id": "product_id",
-      "why_selected": "Why this product fits the user's need",
-      "best_for": "When/who would choose this option",
-      "differentiator": "What makes this unique vs others shown",
-      "card_reason": "Brief 10-15 word reason for the card (e.g., 'Perfect for creative offices — adds personality without being too loud')"
+      "why_selected": "Brief reason",
+      "best_for": "Who/when",
+      "differentiator": "What's unique",
+      "card_reason": "10-15 words for card display"
     }
   ],
   "suggested_follow_ups": [
-    {"label": "Different price range", "query": "Show me similar but under £50"},
-    {"label": "Other colors", "query": "Do these come in other colors?"},
-    {"label": "Complete the look", "query": "What would go well with these?"}
+    {"label": "Short label", "query": "What user would say"}
   ]
 }
 
-If no good matches:
-{
-  "selected_ids": [],
-  "response": {
-    "intent_acknowledgment": "I understand you're looking for [X].",
-    "selection_explanation": "Unfortunately, I couldn't find products that closely match.",
-    "product_highlights": "",
-    "follow_up_question": "Would you like me to show [alternatives] instead?"
+If no good matches, set selected_ids to [] and explain briefly.
   },
   "product_insights": [],
   "suggested_follow_ups": [...]
@@ -727,6 +694,7 @@ Select the best products AND write a response that references them by name. Retu
 
 /**
  * Compose the final response text from structured response fields
+ * Keep it brief - just combine non-empty parts with spaces
  */
 function composeResponseText(response: LLMResponseFields, hasProducts: boolean): string {
   if (!hasProducts) {
@@ -734,30 +702,23 @@ function composeResponseText(response: LLMResponseFields, hasProducts: boolean):
     return response.intent_acknowledgment || response.follow_up_question || '';
   }
 
-  // Compose the full response from the four components
+  // Compose brief response - skip selection_explanation (redundant)
   const parts: string[] = [];
 
-  // 1. Intent acknowledgment + selection explanation
   if (response.intent_acknowledgment) {
     parts.push(response.intent_acknowledgment);
   }
-  if (response.selection_explanation) {
-    parts.push(response.selection_explanation);
-  }
+  // Skip selection_explanation - let the cards speak for themselves
 
-  // 2. Product highlights (differentiation)
   if (response.product_highlights) {
-    parts.push('');  // Add spacing
     parts.push(response.product_highlights);
   }
 
-  // 3. Contextual follow-up
   if (response.follow_up_question) {
-    parts.push('');  // Add spacing
     parts.push(response.follow_up_question);
   }
 
-  return parts.join(' ').replace(/\s+/g, ' ').trim();
+  return parts.filter(p => p.trim()).join(' ').trim();
 }
 
 export async function queryFin(
