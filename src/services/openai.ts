@@ -557,55 +557,56 @@ Select the best products (max 6) and write a BRIEF response.
 
 Your response should be 2-3 short sentences MAX. The cards do the heavy lifting.
 
-## MOST IMPORTANT: card_reason — GROUNDED in the Actual Product
+## MOST IMPORTANT: card_reason — REASON About What's Relevant
 
-You have access to each product's: name, description, brand, price, rating.
+You have access to: name, description, brand, price, rating.
 
-The card_reason must be **GROUNDED** in SPECIFIC details from THIS product — not generic category benefits.
+**Your job:** Figure out which details from THIS product are MOST RELEVANT to THIS user's need. Don't list everything — pick what matters.
 
-**The formula:**
-1. State what the item IS (from name)
-2. Reference a SPECIFIC detail from the product's name/description
-3. Explain why that detail serves the user's need
+### How to think about each piece of data:
 
----
+**Product type (from name)**
+- Include when: Not obvious what the item is, or distinguishing similar items
+- Skip when: Obvious from context (a dress is clearly a dress)
 
-**Example product for "winter clothes":**
-- name: "Napapijri Rainforest Winter Parka"
-- description: "Water-resistant outer shell, fleece-lined interior, adjustable hood"
-- brand: "Napapijri"
-- price: £200
+**Features (from description)**
+- Include when: A feature DIRECTLY serves the user's implicit need
+- Example: "winter clothes" → user needs warmth → "fleece lining" is relevant
+- Example: "beach vacation" → user needs packable → "lightweight" is relevant
+- Skip: Features that don't connect to their specific need
 
-BAD (generic - could be ANY winter item):
-- "Keeps you warm on cold commutes without bulk"
-- "Perfect for staying warm during winter days"
+**Brand**
+- Include when: Brand reputation adds context (Napapijri = outdoor expertise, Nike = athletic performance)
+- Skip when: Generic brand that adds nothing (ASOS Design, basic house brands)
 
-BAD (metadata list - no reasoning):
-- "Water-resistant, fleece-lined, adjustable hood. £200."
+**Price**
+- Include when: It's a notable differentiator ("budget-friendly at £36" vs others at £150+)
+- Skip when: Mid-range and unremarkable
 
-GOOD (grounded in THIS product):
-- "Napapijri parka — water-resistant shell with fleece lining handles wet, cold days. Premium outdoor brand built for harsh weather."
-- "Rainforest parka — the fleece interior adds warmth without heavy bulk. Hood adjusts to seal out wind."
+**Rating**
+- Include when: Exceptionally high (4.5+) as social proof differentiator
+- Skip when: Average (4.2 is normal, not worth mentioning)
 
-Notice GOOD examples:
-- Name the item type (parka)
-- Reference ACTUAL features from description (fleece lining, water-resistant, adjustable hood)
-- Explain why those features serve the need (wet cold days, seals out wind)
-- Use brand/price context where relevant (premium outdoor brand)
+### The key: SAME product, DIFFERENT reasons based on user context
 
----
+Product: Napapijri Rainforest Jacket (fleece-lined, water-resistant, £200)
 
-**Example product for "matching jeans for leather jacket":**
-- name: "ASOS Slim Fit Black Jeans"
-- description: "Distressed details, stretch denim, mid-rise"
+For "winter clothes" (user needs: warmth, weather protection):
+→ "Fleece-lined interior for warmth, water-resistant shell handles rain and snow"
 
-BAD: "Dark wash creates contrast with leather"
+For "stylish outerwear" (user needs: looks good):
+→ "Napapijri's classic outdoor aesthetic — works for city or trail"
 
-GOOD: "Slim black jeans — distressed details echo the leather's edge. Stretch denim means you can move comfortably."
+For "gift for outdoorsy friend" (user needs: quality, brand recognition):
+→ "Napapijri is a go-to outdoor brand — this is their signature piece"
 
----
+### Bad examples (don't do this):
 
-**Each card_reason must reference SPECIFIC details from THAT product's data.**
+- Generic fluff: "Perfect for staying warm" (not grounded in product)
+- Metadata dump: "Fleece-lined, water-resistant, adjustable hood, £200, 4.2★" (no reasoning)
+- Irrelevant details: Mentioning brand when it's generic, rating when it's average
+
+### Each card_reason should feel like a knowledgeable friend explaining why they'd pick THIS one.
 
 ## Output Format
 
@@ -624,7 +625,7 @@ Return JSON:
       "why_selected": "Brief reason",
       "best_for": "Who/when",
       "differentiator": "What's unique vs others shown",
-      "card_reason": "GROUNDED: Reference SPECIFIC details from this product's name/description. State item type, cite actual features, explain why they serve the need."
+      "card_reason": "Reason about which product details are RELEVANT to this user's need. Pick what matters, skip what doesn't. Like a knowledgeable friend explaining their pick."
     }
   ],
   "suggested_follow_ups": [
