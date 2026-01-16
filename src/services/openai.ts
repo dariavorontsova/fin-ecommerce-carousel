@@ -557,64 +557,55 @@ Select the best products (max 6) and write a BRIEF response.
 
 Your response should be 2-3 short sentences MAX. The cards do the heavy lifting.
 
-## MOST IMPORTANT: card_reason — The Key Differentiator
+## MOST IMPORTANT: card_reason — GROUNDED in the Actual Product
 
-The card_reason answers ONE question: **"Why would I want THIS for MY situation?"**
+You have access to each product's: name, description, brand, price, rating.
 
-**What card_reason is:**
-- A connection between ONE specific product attribute and the USER'S need
-- An explanation of WHY that attribute matters for THEM
-- Grounded in the actual product, not generic
+The card_reason must be **GROUNDED** in SPECIFIC details from THIS product — not generic category benefits.
 
-**What card_reason is NOT:**
-- A feature list or metadata dump
-- A rating without context ("4.2★" means nothing alone)
-- Generic marketing ("perfect for winter")
-- A product description
-
-**The key:** Pick ONE relevant attribute, connect it to THEIR context, explain why it matters.
+**The formula:**
+1. State what the item IS (from name)
+2. Reference a SPECIFIC detail from the product's name/description
+3. Explain why that detail serves the user's need
 
 ---
 
-**Examples for "winter clothes":**
+**Example product for "winter clothes":**
+- name: "Napapijri Rainforest Winter Parka"
+- description: "Water-resistant outer shell, fleece-lined interior, adjustable hood"
+- brand: "Napapijri"
+- price: £200
 
-BAD (metadata dump):
-- "Winter jacket — high collar and underarm vents. 4.2★ rating"
+BAD (generic - could be ANY winter item):
+- "Keeps you warm on cold commutes without bulk"
+- "Perfect for staying warm during winter days"
 
-BAD (vague marketing):
-- "Perfect for staying warm during active winter days"
+BAD (metadata list - no reasoning):
+- "Water-resistant, fleece-lined, adjustable hood. £200."
 
-GOOD (reasoning that connects attribute → need → why):
-- "High collar blocks wind on cold commutes — warm without looking bulky"
-- "Down-fill traps heat in freezing temps but compresses flat for travel"
-- "Water-resistant outer layer so snow and sleet won't soak through"
-- "Chunky knit wool — the weight keeps heat in, great for layering"
+GOOD (grounded in THIS product):
+- "Napapijri parka — water-resistant shell with fleece lining handles wet, cold days. Premium outdoor brand built for harsh weather."
+- "Rainforest parka — the fleece interior adds warmth without heavy bulk. Hood adjusts to seal out wind."
 
----
-
-**Examples for "matching jeans for leather jacket":**
-
-BAD: "Slim black jeans with distressed details. Stretch denim."
-
-GOOD:
-- "Dark wash adds edge-on-edge contrast — lets the jacket stay the statement"
-- "Light wash softens the tough leather vibe — good for casual daytime looks"
-- "High-waist pairs well with cropped jackets — balances the proportions"
+Notice GOOD examples:
+- Name the item type (parka)
+- Reference ACTUAL features from description (fleece lining, water-resistant, adjustable hood)
+- Explain why those features serve the need (wet cold days, seals out wind)
+- Use brand/price context where relevant (premium outdoor brand)
 
 ---
 
-**Examples for "interview outfit":**
+**Example product for "matching jeans for leather jacket":**
+- name: "ASOS Slim Fit Black Jeans"
+- description: "Distressed details, stretch denim, mid-rise"
 
-BAD: "Tailored blazer with clean shoulders. Breathable lining."
+BAD: "Dark wash creates contrast with leather"
 
-GOOD:
-- "Structured shoulders read professional without feeling stiff — comfortable for long interviews"
-- "Navy reads serious but approachable — safer than black for most industries"
-- "Stretch blend so you can sit comfortably without the fabric pulling"
+GOOD: "Slim black jeans — distressed details echo the leather's edge. Stretch denim means you can move comfortably."
 
 ---
 
-**Each card_reason must be DIFFERENT** — explain why you'd pick THIS one over the others.
+**Each card_reason must reference SPECIFIC details from THAT product's data.**
 
 ## Output Format
 
@@ -633,7 +624,7 @@ Return JSON:
       "why_selected": "Brief reason",
       "best_for": "Who/when",
       "differentiator": "What's unique vs others shown",
-      "card_reason": "15-25 words: Why THIS product for THEIR need. Connect one attribute to their context, explain why it matters."
+      "card_reason": "GROUNDED: Reference SPECIFIC details from this product's name/description. State item type, cite actual features, explain why they serve the need."
     }
   ],
   "suggested_follow_ups": [
