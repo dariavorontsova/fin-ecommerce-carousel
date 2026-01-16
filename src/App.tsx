@@ -692,8 +692,8 @@ function App() {
       </div>
 
       {/* Main content area - LLM Debug Panel */}
-      <div className="ml-80 min-h-screen bg-neutral-100 p-8">
-        <div className="max-w-2xl">
+      <div className="ml-80 min-h-screen bg-neutral-100 p-6 pr-[500px]">
+        <div className="max-w-lg">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">LLM Decision Debug</h2>
           
           {lastResponse ? (
