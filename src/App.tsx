@@ -691,8 +691,151 @@ function App() {
         </div>
       </div>
 
-      {/* Main content area */}
-      <div className="ml-80 min-h-screen bg-neutral-100" />
+      {/* Main content area - LLM Debug Panel */}
+      <div className="ml-80 min-h-screen bg-neutral-100 p-8">
+        <div className="max-w-2xl">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">LLM Decision Debug</h2>
+          
+          {lastResponse ? (
+            <div className="space-y-4">
+              {/* Intent & Role */}
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <h3 className="text-sm font-medium text-gray-500 mb-3">Intent Classification</h3>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+                    lastResponse.llmResponse.intent.primary === 'support' 
+                      ? 'bg-orange-100 text-orange-700' 
+                      : lastResponse.llmResponse.intent.primary === 'shopping_discovery'
+                      ? 'bg-blue-100 text-blue-700'
+                      : lastResponse.llmResponse.intent.primary === 'refinement'
+                      ? 'bg-purple-100 text-purple-700'
+                      : 'bg-gray-100 text-gray-700'
+                  }`}>
+                    {lastResponse.llmResponse.intent.primary}
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    {Math.round(lastResponse.llmResponse.intent.confidence * 100)}% confidence
+                  </span>
+                </div>
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">Signals: </span>
+                  {lastResponse.llmResponse.intent.signals.join(', ') || 'None detected'}
+                </div>
+              </div>
+
+              {/* Decision */}
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <h3 className="text-sm font-medium text-gray-500 mb-3">Decision</h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-gray-500">Show Products:</span>
+                    <span className={`ml-2 font-medium ${lastResponse.llmResponse.decision.show_products ? 'text-green-600' : 'text-gray-600'}`}>
+                      {lastResponse.llmResponse.decision.show_products ? 'Yes' : 'No'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Renderer:</span>
+                    <span className="ml-2 font-medium text-gray-800">{lastResponse.llmResponse.decision.renderer}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Item Count:</span>
+                    <span className="ml-2 font-medium text-gray-800">{lastResponse.llmResponse.decision.item_count}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Needs Clarification:</span>
+                    <span className="ml-2 font-medium text-gray-800">{lastResponse.llmResponse.decision.needs_clarification ? 'Yes' : 'No'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Understood Intent */}
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <h3 className="text-sm font-medium text-gray-500 mb-3">Understood Intent</h3>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="text-gray-500">Explicit Need:</span>
+                    <span className="ml-2 text-gray-800">{lastResponse.llmResponse.understood_intent?.explicit_need || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Implicit Constraints:</span>
+                    <span className="ml-2 text-gray-800">
+                      {lastResponse.llmResponse.understood_intent?.implicit_constraints?.join(', ') || 'None'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Inferred Context:</span>
+                    <span className="ml-2 text-gray-800">{lastResponse.llmResponse.understood_intent?.inferred_context || 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Reasoning */}
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <h3 className="text-sm font-medium text-gray-500 mb-3">LLM Reasoning</h3>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="text-gray-500">Intent Explanation:</span>
+                    <p className="mt-1 text-gray-800">{lastResponse.llmResponse.reasoning?.intent_explanation || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Selection Reasoning:</span>
+                    <p className="mt-1 text-gray-800">{lastResponse.llmResponse.reasoning?.selection_reasoning || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Product Search (if applicable) */}
+              {lastResponse.llmResponse.product_search && (
+                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                  <h3 className="text-sm font-medium text-gray-500 mb-3">Product Search</h3>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="text-gray-500">Query:</span>
+                      <span className="ml-2 text-gray-800">{lastResponse.llmResponse.product_search.query}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Subcategory:</span>
+                      <span className="ml-2 font-mono text-gray-800">{lastResponse.llmResponse.product_search.subcategory || 'Any'}</span>
+                    </div>
+                    {lastResponse.llmResponse.product_search.priceRange && (
+                      <div>
+                        <span className="text-gray-500">Price Range:</span>
+                        <span className="ml-2 text-gray-800">
+                          £{lastResponse.llmResponse.product_search.priceRange.min || 0} - £{lastResponse.llmResponse.product_search.priceRange.max || '∞'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Latency */}
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <h3 className="text-sm font-medium text-gray-500 mb-3">Performance</h3>
+                <div className="flex gap-6 text-sm">
+                  <div>
+                    <span className="text-gray-500">Total:</span>
+                    <span className="ml-2 font-mono text-gray-800">{Math.round(lastResponse.latency.total)}ms</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">LLM:</span>
+                    <span className="ml-2 font-mono text-gray-800">{Math.round(lastResponse.latency.llm)}ms</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Search:</span>
+                    <span className="ml-2 font-mono text-gray-800">{Math.round(lastResponse.latency.search)}ms</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-500">
+              <p>Send a message to see LLM decision details here.</p>
+              <p className="text-sm mt-2">This panel shows intent classification, reasoning, and performance metrics.</p>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Gradient backdrop behind messenger - creates depth effect */}
       <div 
