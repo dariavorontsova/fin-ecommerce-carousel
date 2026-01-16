@@ -650,6 +650,44 @@ function App() {
               </div>
             )}
           </div>
+
+          {/* Session State Debug */}
+          <div className="p-3 rounded-lg border bg-slate-50 border-slate-200">
+            <div className="font-medium text-sm text-slate-800 mb-2">Session State</div>
+            <div className="text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Mode:</span>
+                <span className={`font-mono px-1.5 py-0.5 rounded ${
+                  sessionState.conversationMode === 'support' ? 'bg-orange-100 text-orange-700' :
+                  sessionState.conversationMode === 'shopping' ? 'bg-blue-100 text-blue-700' :
+                  'bg-gray-100 text-gray-600'
+                }`}>
+                  {sessionState.conversationMode}
+                </span>
+              </div>
+              {sessionState.supportContext && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Support:</span>
+                  <span className="font-mono text-orange-600">
+                    {sessionState.supportContext.issueType}
+                    {sessionState.supportContext.resolved ? ' ✓' : ' (active)'}
+                  </span>
+                </div>
+              )}
+              {sessionState.shoppingContext && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Shopping:</span>
+                  <span className="font-mono text-blue-600 truncate ml-2 max-w-[120px]" title={sessionState.shoppingContext.query}>
+                    {sessionState.shoppingContext.subcategory}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-slate-500">Products shown:</span>
+                <span className="font-mono text-slate-600">{sessionState.productsShownThisSession.length}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
