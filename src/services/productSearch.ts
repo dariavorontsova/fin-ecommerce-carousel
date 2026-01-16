@@ -71,6 +71,7 @@ export interface SearchOptions {
   maxResults?: number;
   minPrice?: number;
   maxPrice?: number;
+  excludeIds?: string[]; // Products to exclude (already shown)
 }
 
 export interface SearchResult {
@@ -360,6 +361,12 @@ export async function searchProducts(options: SearchOptions = {}): Promise<Searc
   const catalog = await fetchCatalog();
   
   let results = [...catalog];
+  
+  // Exclude already-shown products (for "show more" functionality)
+  if (options.excludeIds && options.excludeIds.length > 0) {
+    const excludeSet = new Set(options.excludeIds);
+    results = results.filter(p => !excludeSet.has(p.id));
+  }
   
   // Product type keywords that MUST match subcategory (not just appear anywhere)
   const PRODUCT_TYPE_MAP: Record<string, string[]> = {

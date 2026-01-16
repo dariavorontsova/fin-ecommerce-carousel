@@ -106,6 +106,9 @@ function App() {
   const [lastResponse, setLastResponse] = useState<FinResponse | null>(null);
   const conversationHistoryRef = useRef<ConversationMessage[]>([]);
   const llmConfigured = isConfigured();
+  
+  // Conversation memory: track products shown to avoid repeats
+  const [productsShownThisSession, setProductsShownThisSession] = useState<string[]>([]);
 
   // Product preview state (using subcategory since all products are 'clothing')
   const [previewSubcategory, setPreviewSubcategory] = useState<string>('');
@@ -162,13 +165,24 @@ function App() {
       let response: FinResponse;
 
       if (llmConfigured) {
-        response = await queryFin(content, history);
+        // Pass context including products already shown this session
+        response = await queryFin(content, history, {
+          productsShownThisSession,
+        });
       } else {
         // Use mock mode
         response = await queryFinMock(content, history);
       }
 
       setLastResponse(response);
+      
+      // Track products shown this session (for "show more" / "different options")
+      if (response.products.length > 0) {
+        setProductsShownThisSession(prev => [
+          ...prev,
+          ...response.products.map(p => p.id)
+        ]);
+      }
 
       // Update conversation history
       conversationHistoryRef.current = [
@@ -224,7 +238,7 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, llmConfigured, cardLayout]);
+  }, [messages, llmConfigured, cardLayout, productsShownThisSession]);
 
   const toggleConfig = (key: keyof CardConfig) => {
     setCardConfig(prev => ({ ...prev, [key]: !prev[key] }));
@@ -232,6 +246,7 @@ function App() {
 
   const clearConversation = () => {
     setMessages([]);
+    setProductsShownThisSession([]); // Reset conversation memory
     clearSavedConversation();
   };
 

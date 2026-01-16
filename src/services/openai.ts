@@ -80,6 +80,7 @@ export interface ConversationContext {
   cart_items?: number;
   user_status?: 'new' | 'returning' | 'vip';
   previous_purchases?: string[];
+  productsShownThisSession?: string[]; // Track shown products to avoid repeats
 }
 
 export interface FinResponse {
@@ -799,12 +800,14 @@ export async function queryFin(
     // For product responses, use Stage 2b (rerank + respond)
     if (llmResponse.decision.show_products && llmResponse.product_search) {
       // Step 1: Coarse retrieval - get candidates by category
+      // Exclude products already shown this session (for "show more" / "different options")
       const searchResult = await searchProducts({
         query: llmResponse.product_search.query,
         subcategory: llmResponse.product_search.subcategory,
         maxResults: 30, // Get many candidates for reranking
         minPrice: llmResponse.product_search.priceRange?.min,
         maxPrice: llmResponse.product_search.priceRange?.max,
+        excludeIds: context.productsShownThisSession,
       });
 
       if (searchResult.products.length > 0) {
