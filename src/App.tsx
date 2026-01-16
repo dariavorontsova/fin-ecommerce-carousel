@@ -691,153 +691,153 @@ function App() {
         </div>
       </div>
 
-      {/* Main content area - LLM Debug Panel */}
-      <div className="ml-80 min-h-screen bg-neutral-100 p-6 pr-[500px]">
-        <div className="max-w-lg">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">LLM Decision Debug</h2>
-          
+      {/* Debug Panel - same style as config */}
+      <div className="fixed left-80 top-0 bottom-0 w-80 bg-neutral-100 border-r border-neutral-200 overflow-y-auto">
+        <div className="p-6 space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold text-neutral-900">LLM Decision Debug</h2>
+          </div>
+
           {lastResponse ? (
-            <div className="space-y-4">
-              {/* Intent & Role */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <h3 className="text-sm font-medium text-gray-500 mb-3">Intent Classification</h3>
-                <div className="flex items-center gap-3 mb-3">
-                  <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+            <>
+              {/* Intent Classification */}
+              <div className="space-y-3">
+                <Label className="text-xs text-neutral-500 uppercase tracking-wide">
+                  Intent Classification
+                </Label>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${
                     lastResponse.llmResponse.intent.primary === 'support' 
                       ? 'bg-orange-100 text-orange-700' 
                       : lastResponse.llmResponse.intent.primary === 'shopping_discovery'
                       ? 'bg-blue-100 text-blue-700'
                       : lastResponse.llmResponse.intent.primary === 'refinement'
                       ? 'bg-purple-100 text-purple-700'
-                      : 'bg-gray-100 text-gray-700'
+                      : 'bg-neutral-200 text-neutral-700'
                   }`}>
                     {lastResponse.llmResponse.intent.primary}
                   </span>
-                  <span className="text-sm text-gray-500">
-                    {Math.round(lastResponse.llmResponse.intent.confidence * 100)}% confidence
+                  <span className="text-xs text-neutral-500">
+                    {Math.round(lastResponse.llmResponse.intent.confidence * 100)}%
                   </span>
                 </div>
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">Signals: </span>
-                  {lastResponse.llmResponse.intent.signals.join(', ') || 'None detected'}
-                </div>
+                <p className="text-xs text-neutral-600">
+                  {lastResponse.llmResponse.intent.signals.join(', ') || 'No signals'}
+                </p>
               </div>
+
+              <Separator className="bg-neutral-200" />
 
               {/* Decision */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <h3 className="text-sm font-medium text-gray-500 mb-3">Decision</h3>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <span className="text-gray-500">Show Products:</span>
-                    <span className={`ml-2 font-medium ${lastResponse.llmResponse.decision.show_products ? 'text-green-600' : 'text-gray-600'}`}>
-                      {lastResponse.llmResponse.decision.show_products ? 'Yes' : 'No'}
-                    </span>
+              <div className="space-y-3">
+                <Label className="text-xs text-neutral-500 uppercase tracking-wide">
+                  Decision
+                </Label>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="text-neutral-500">Show Products</div>
+                  <div className={`font-medium ${lastResponse.llmResponse.decision.show_products ? 'text-green-600' : 'text-neutral-600'}`}>
+                    {lastResponse.llmResponse.decision.show_products ? 'Yes' : 'No'}
                   </div>
-                  <div>
-                    <span className="text-gray-500">Renderer:</span>
-                    <span className="ml-2 font-medium text-gray-800">{lastResponse.llmResponse.decision.renderer}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Requested:</span>
-                    <span className="ml-2 font-medium text-gray-800">{lastResponse.llmResponse.decision.item_count} items</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Returned:</span>
-                    <span className={`ml-2 font-medium ${lastResponse.products.length === 0 ? 'text-red-600' : lastResponse.products.length < lastResponse.llmResponse.decision.item_count ? 'text-amber-600' : 'text-green-600'}`}>
-                      {lastResponse.products.length} items
-                    </span>
+                  <div className="text-neutral-500">Renderer</div>
+                  <div className="font-medium text-neutral-900">{lastResponse.llmResponse.decision.renderer}</div>
+                  <div className="text-neutral-500">Requested</div>
+                  <div className="font-medium text-neutral-900">{lastResponse.llmResponse.decision.item_count} items</div>
+                  <div className="text-neutral-500">Returned</div>
+                  <div className={`font-medium ${lastResponse.products.length === 0 ? 'text-red-600' : lastResponse.products.length < lastResponse.llmResponse.decision.item_count ? 'text-amber-600' : 'text-green-600'}`}>
+                    {lastResponse.products.length} items
                   </div>
                 </div>
               </div>
+
+              <Separator className="bg-neutral-200" />
 
               {/* Understood Intent */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <h3 className="text-sm font-medium text-gray-500 mb-3">Understood Intent</h3>
-                <div className="space-y-2 text-sm">
+              <div className="space-y-3">
+                <Label className="text-xs text-neutral-500 uppercase tracking-wide">
+                  Understood Intent
+                </Label>
+                <div className="space-y-2 text-xs">
                   <div>
-                    <span className="text-gray-500">Explicit Need:</span>
-                    <span className="ml-2 text-gray-800">{lastResponse.llmResponse.understood_intent?.explicit_need || 'N/A'}</span>
+                    <span className="text-neutral-500">Explicit: </span>
+                    <span className="text-neutral-900">{lastResponse.llmResponse.understood_intent?.explicit_need || 'N/A'}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Implicit Constraints:</span>
-                    <span className="ml-2 text-gray-800">
-                      {lastResponse.llmResponse.understood_intent?.implicit_constraints?.join(', ') || 'None'}
-                    </span>
+                    <span className="text-neutral-500">Implicit: </span>
+                    <span className="text-neutral-900">{lastResponse.llmResponse.understood_intent?.implicit_constraints?.join(', ') || 'None'}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Inferred Context:</span>
-                    <span className="ml-2 text-gray-800">{lastResponse.llmResponse.understood_intent?.inferred_context || 'N/A'}</span>
+                    <span className="text-neutral-500">Context: </span>
+                    <span className="text-neutral-900">{lastResponse.llmResponse.understood_intent?.inferred_context || 'N/A'}</span>
                   </div>
                 </div>
               </div>
+
+              <Separator className="bg-neutral-200" />
 
               {/* Reasoning */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <h3 className="text-sm font-medium text-gray-500 mb-3">LLM Reasoning</h3>
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <span className="text-gray-500">Intent Explanation:</span>
-                    <p className="mt-1 text-gray-800">{lastResponse.llmResponse.reasoning?.intent_explanation || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Selection Reasoning:</span>
-                    <p className="mt-1 text-gray-800">{lastResponse.llmResponse.reasoning?.selection_reasoning || 'N/A'}</p>
-                  </div>
+              <div className="space-y-3">
+                <Label className="text-xs text-neutral-500 uppercase tracking-wide">
+                  LLM Reasoning
+                </Label>
+                <div className="space-y-2 text-xs text-neutral-700">
+                  <p>{lastResponse.llmResponse.reasoning?.intent_explanation || 'N/A'}</p>
+                  {lastResponse.llmResponse.reasoning?.selection_reasoning && (
+                    <p className="text-neutral-500">{lastResponse.llmResponse.reasoning.selection_reasoning}</p>
+                  )}
                 </div>
               </div>
 
-              {/* Product Search (if applicable) */}
+              {/* Product Search */}
               {lastResponse.llmResponse.product_search && (
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                  <h3 className="text-sm font-medium text-gray-500 mb-3">Product Search</h3>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="text-gray-500">Query:</span>
-                      <span className="ml-2 text-gray-800">{lastResponse.llmResponse.product_search.query}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Subcategory:</span>
-                      <span className="ml-2 font-mono text-gray-800">{lastResponse.llmResponse.product_search.subcategory || 'Any'}</span>
-                    </div>
-                    {lastResponse.llmResponse.product_search.priceRange && (
+                <>
+                  <Separator className="bg-neutral-200" />
+                  <div className="space-y-3">
+                    <Label className="text-xs text-neutral-500 uppercase tracking-wide">
+                      Product Search
+                    </Label>
+                    <div className="space-y-1 text-xs">
                       <div>
-                        <span className="text-gray-500">Price Range:</span>
-                        <span className="ml-2 text-gray-800">
-                          £{lastResponse.llmResponse.product_search.priceRange.min || 0} - £{lastResponse.llmResponse.product_search.priceRange.max || '∞'}
-                        </span>
+                        <span className="text-neutral-500">Query: </span>
+                        <span className="text-neutral-900">{lastResponse.llmResponse.product_search.query}</span>
                       </div>
-                    )}
+                      <div>
+                        <span className="text-neutral-500">Subcategory: </span>
+                        <span className="font-mono text-neutral-900">{lastResponse.llmResponse.product_search.subcategory || 'Any'}</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </>
               )}
 
-              {/* Latency */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <h3 className="text-sm font-medium text-gray-500 mb-3">Performance</h3>
-                <div className="flex gap-6 text-sm">
+              <Separator className="bg-neutral-200" />
+
+              {/* Performance */}
+              <div className="space-y-3">
+                <Label className="text-xs text-neutral-500 uppercase tracking-wide">
+                  Performance
+                </Label>
+                <div className="flex gap-4 text-xs">
                   <div>
-                    <span className="text-gray-500">Total:</span>
-                    <span className="ml-2 font-mono text-gray-800">{Math.round(lastResponse.latency.total)}ms</span>
+                    <span className="text-neutral-500">Total: </span>
+                    <span className="font-mono text-neutral-900">{Math.round(lastResponse.latency.total)}ms</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">LLM:</span>
-                    <span className="ml-2 font-mono text-gray-800">{Math.round(lastResponse.latency.llm)}ms</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Search:</span>
-                    <span className="ml-2 font-mono text-gray-800">{Math.round(lastResponse.latency.search)}ms</span>
+                    <span className="text-neutral-500">LLM: </span>
+                    <span className="font-mono text-neutral-900">{Math.round(lastResponse.latency.llm)}ms</span>
                   </div>
                 </div>
               </div>
-            </div>
+            </>
           ) : (
-            <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-500">
-              <p>Send a message to see LLM decision details here.</p>
-              <p className="text-sm mt-2">This panel shows intent classification, reasoning, and performance metrics.</p>
-            </div>
+            <p className="text-xs text-neutral-500">
+              Send a message to see LLM decision details.
+            </p>
           )}
         </div>
       </div>
+
+      {/* Main content area placeholder */}
+      <div className="ml-[640px] min-h-screen bg-neutral-100" />
 
       {/* Gradient backdrop behind messenger - creates depth effect */}
       <div 
