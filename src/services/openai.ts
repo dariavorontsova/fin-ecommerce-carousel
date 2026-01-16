@@ -559,43 +559,55 @@ Your response should be 2-3 short sentences MAX. The cards do the heavy lifting.
 
 ## MOST IMPORTANT: card_reason — The Key Differentiator
 
-The card_reason is displayed ON each product card. This is where AI shopping proves its value over traditional e-commerce.
+The card_reason is displayed ON each product card. This is where AI proves it UNDERSTANDS products, not just matches keywords.
 
-**What card_reason is NOT:**
-- NOT a product description ("Light wash mom jeans with ripped details")
-- NOT generic praise ("Great quality jeans")
-- NOT repeating what the user can see in the image
+**card_reason MUST include THREE elements:**
 
-**What card_reason IS:**
-- WHY this product fits THIS user's specific situation
-- A connection between the product and THEIR context/need
-- What makes this the right choice for THEM
+1. **WHAT IT IS** — Item type (coat, jacket, jumper, jeans, etc.) so user knows at a glance
+2. **SPECIFIC ATTRIBUTE** — The actual feature that serves their need (material, design detail, fit)
+3. **EVIDENCE/PROOF** — Why it works (rating, reviews, popularity, material quality, design reason)
 
-**The formula**: [How this product] + [serves their specific need/context]
+**The formula**: `[Item type] — [specific attribute for need]. [Evidence/proof].`
+
+**Length**: 2-3 lines (~20-30 words). Be informative, not salesy.
+
+---
+
+**Examples for "winter clothes":**
+
+BAD (vague marketing, no substance):
+- "Perfect for staying warm during active winter days"
+- "Elevates winter outfits with warmth and style"
+
+GOOD (grounded, informative):
+- "Faux fur coat — oversized fit layers over sweaters. Highly rated for warmth without bulk."
+- "Puffer jacket — down-fill insulation, wind-resistant shell. Best seller for cold commutes."
+- "Wool jumper — chunky cable knit traps heat. 4.5★ average from 200+ reviews."
+- "Fleece hoodie — brushed interior stays cozy. Popular for layering under coats."
+
+---
 
 **Examples for "matching jeans for my leather jacket":**
 
-BAD card_reasons (just descriptions):
-- "Trendy ripped mom jeans with embellishments"
-- "Casual light wash mom jeans with relaxed fit"
+BAD: "Creates edge-on-edge contrast with leather" (what IS it? no evidence)
 
-GOOD card_reasons (reasoning for THIS context):
-- "Dark distressed wash creates edge-on-edge contrast with leather"
-- "Light wash softens the jacket's toughness — casual balance"
-- "The embellishments echo the jacket's rebellious vibe"
-- "Clean lines let the statement jacket stay the focus"
+GOOD:
+- "Slim black jeans — distressed details match the leather's edge. Stretch denim for comfort."
+- "Mom jeans in light wash — softens the tough jacket look. Relaxed fit balances fitted leather."
+
+---
 
 **Examples for "interview outfit":**
 
-BAD: "Professional navy blazer with modern cut"
-GOOD: "Structured enough for a first impression, comfortable for a long interview day"
+BAD: "Structured enough for a first impression" (vague, what item?)
 
-**Examples for "beach vacation":**
+GOOD:
+- "Tailored blazer — clean shoulders, professional cut. Breathable lining for all-day interviews."
+- "Slim trousers — pressed crease looks polished. Stretch fabric so you can sit comfortably."
 
-BAD: "Flowy maxi dress in floral print"
-GOOD: "Packs without wrinkling, works for beach lunch or evening drinks"
+---
 
-**Each card_reason must be DIFFERENT** — explain why you'd pick THIS one vs the others.
+**Each card_reason must be DIFFERENT** — show why each option offers something distinct.
 
 ## Output Format
 
@@ -614,7 +626,7 @@ Return JSON:
       "why_selected": "Brief reason",
       "best_for": "Who/when",
       "differentiator": "What's unique vs others shown",
-      "card_reason": "10-15 words: WHY this product for THEIR specific context (not a description!)"
+      "card_reason": "20-30 words: [Item type] — [specific attribute]. [Evidence/proof]. Informative, not salesy."
     }
   ],
   "suggested_follow_ups": [
