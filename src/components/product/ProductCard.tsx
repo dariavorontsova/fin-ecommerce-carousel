@@ -80,20 +80,22 @@ export function ProductCard({
         </div>
 
         {/* Content - Figma: px-16, pt-14, pb-16, gap-12 */}
-        <div className="flex flex-col gap-3" style={{ padding: '14px 16px 16px 16px' }}>
+        <div className="flex flex-col justify-between" style={{ padding: '14px 16px 16px 16px' }}>
           {/* AI-generated pitch - 14px, line-height 1.3, #14161a, max 3 lines */}
+          {/* Fixed height (3 lines * 14px * 1.3 = ~55px) ensures price alignment across cards */}
           <p 
-            className="overflow-hidden line-clamp-3"
+            className="overflow-hidden line-clamp-3 mb-3"
             style={{ 
               fontSize: '14px', 
               lineHeight: '1.3', 
               color: '#14161a',
+              minHeight: '55px', // 3 lines worth of height for consistent alignment
             }}
           >
             {product.aiReasoning || generateMockReasoning(product)}
           </p>
           
-          {/* Price + Name row - 13px, #6c6f74 */}
+          {/* Price + Name row - 13px, #6c6f74 - always at bottom */}
           <div 
             className="flex items-start gap-1"
             style={{ fontSize: '13px', lineHeight: '1.5', color: '#6c6f74' }}
