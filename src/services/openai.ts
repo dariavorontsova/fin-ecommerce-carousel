@@ -209,7 +209,7 @@ interface OpenAIConfig {
 // Auto-configure from environment variable
 const config: OpenAIConfig = {
   apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
-  model: 'gpt-4o-mini',
+  model: 'gpt-5',
   temperature: 0.3,
 };
 

@@ -492,7 +492,7 @@ function App() {
             </div>
             <div className={`text-xs mt-1 ${llmConfigured ? 'text-green-700' : 'text-amber-700'}`}>
               {llmConfigured 
-                ? 'Using GPT-4o-mini for intent detection'
+                ? 'Using GPT-5 for intent detection'
                 : 'Add VITE_OPENAI_API_KEY to .env for LLM mode'
               }
             </div>
