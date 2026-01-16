@@ -841,9 +841,23 @@ export async function queryFin(
           llmResponse.decision.item_count
         );
 
-        // Get the selected products in order
+        // Get the selected products in order and attach AI reasoning
+        const insightsMap = new Map(
+          rerankResult.product_insights.map(p => [p.id, p])
+        );
+        
         const selectedProducts = rerankResult.selected_ids
-          .map(id => searchResult.products.find(p => p.id === id))
+          .map(id => {
+            const product = searchResult.products.find(p => p.id === id);
+            if (!product) return undefined;
+            
+            // Attach card_reason as aiReasoning for display on cards
+            const insight = insightsMap.get(id);
+            if (insight?.card_reason) {
+              return { ...product, aiReasoning: insight.card_reason };
+            }
+            return product;
+          })
           .filter((p): p is Product => p !== undefined);
 
         products = selectedProducts;
@@ -853,7 +867,7 @@ export async function queryFin(
           responseText = composeResponseText(rerankResult.response, true);
           suggestedFollowUps = rerankResult.suggested_follow_ups || suggestedFollowUps;
           
-          // Store product insights for debugging and potential card_reason display
+          // Store product insights for debugging
           llmResponse.reasoning.product_reasoning = rerankResult.product_insights.map(
             p => `${p.why_selected} (${p.differentiator})`
           );
