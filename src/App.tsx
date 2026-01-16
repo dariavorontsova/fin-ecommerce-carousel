@@ -10,6 +10,9 @@ import {
   isConfigured,
   ConversationMessage,
   FinResponse,
+  searchProducts,
+  isCached,
+  SearchResult,
 } from './services';
 
 // shadcn/ui components
@@ -75,6 +78,11 @@ function App() {
 
   // Product preview state (using subcategory since all products are 'clothing')
   const [previewSubcategory, setPreviewSubcategory] = useState<string>('');
+
+  // Live search state (on-demand HuggingFace)
+  const [liveSearchQuery, setLiveSearchQuery] = useState('');
+  const [liveSearching, setLiveSearching] = useState(false);
+  const [lastSearchResult, setLastSearchResult] = useState<SearchResult | null>(null);
 
   // Load products from DummyJSON API on mount
   useEffect(() => {
@@ -208,6 +216,46 @@ function App() {
       }
     );
     setMessages(prev => [...prev, previewMsg]);
+  };
+
+  // Live search from HuggingFace (on-demand)
+  const handleLiveSearch = async () => {
+    if (!liveSearchQuery.trim()) return;
+    
+    setLiveSearching(true);
+    try {
+      const result = await searchProducts({
+        query: liveSearchQuery,
+        maxResults: 6,
+      });
+      
+      setLastSearchResult(result);
+      
+      // Show results in messenger
+      if (result.products.length > 0) {
+        const searchMsg = createAgentMessage(
+          `Found ${result.totalMatches} products for "${liveSearchQuery}" (${result.searchTime}ms${result.fromCache ? ', cached' : ', fetched'}):`,
+          {
+            products: result.products,
+            layout: cardLayout,
+          }
+        );
+        setMessages(prev => [...prev, searchMsg]);
+      } else {
+        const noResultsMsg = createAgentMessage(
+          `No products found for "${liveSearchQuery}". Try: jacket, dress, boots, jeans, etc.`
+        );
+        setMessages(prev => [...prev, noResultsMsg]);
+      }
+    } catch (error) {
+      console.error('Live search error:', error);
+      const errorMsg = createAgentMessage(
+        'Failed to search products. Check console for details.'
+      );
+      setMessages(prev => [...prev, errorMsg]);
+    } finally {
+      setLiveSearching(false);
+    }
   };
 
   // Get available subcategories (ones that have products)
@@ -404,6 +452,41 @@ function App() {
                 Preview
               </button>
             </div>
+          </div>
+
+          <Separator className="bg-neutral-200" />
+
+          {/* Live Search (HuggingFace) */}
+          <div className="space-y-3">
+            <Label className="text-xs text-neutral-500 uppercase tracking-wide">
+              Live Search (HuggingFace)
+            </Label>
+            <p className="text-xs text-neutral-500">
+              On-demand search from ~30K products. First search fetches catalog (~3s).
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={liveSearchQuery}
+                onChange={(e) => setLiveSearchQuery(e.target.value)}
+                placeholder="jacket, boots, dress..."
+                className="flex-1 h-8 text-xs"
+                onKeyDown={(e) => e.key === 'Enter' && handleLiveSearch()}
+              />
+              <button
+                onClick={handleLiveSearch}
+                disabled={liveSearching || !liveSearchQuery.trim()}
+                className="px-3 py-1.5 text-xs bg-[#2a2a2a] text-white hover:bg-[#3a3a3a] disabled:opacity-40 disabled:cursor-not-allowed rounded-md transition-colors min-w-[60px]"
+              >
+                {liveSearching ? '...' : 'Search'}
+              </button>
+            </div>
+            {lastSearchResult && (
+              <div className="text-xs text-neutral-500 bg-neutral-50 p-2 rounded">
+                Last: {lastSearchResult.totalMatches} matches in {lastSearchResult.searchTime}ms 
+                {lastSearchResult.fromCache ? ' (cached)' : ' (fetched)'} 
+                {isCached() && ' • Catalog cached'}
+              </div>
+            )}
           </div>
 
           <Separator className="bg-neutral-200" />
