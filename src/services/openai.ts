@@ -443,11 +443,7 @@ Return JSON:
   ]
 }
 
-If no good matches, set selected_ids to [] and explain briefly.
-  },
-  "product_insights": [],
-  "suggested_follow_ups": [...]
-}`;
+If no good matches, set selected_ids to [] and explain briefly.`;
 
 interface ProductCandidate {
   id: string;
