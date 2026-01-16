@@ -62,6 +62,36 @@ AI shopping should:
 4. Follow-up suggestions **advance the shopping journey** — not generic "anything else?"
 5. The experience feels like talking to **someone who knows fashion**, not querying a database
 
+### AI Reasoning on Cards (Key Differentiator)
+
+Traditional product cards show **deterministic metadata**:
+- Star rating (4.5 stars)
+- Review count (338 reviews)
+- Tags ("New", "Sale", "Best Seller")
+- Category labels
+
+This is **old-world differentiation** — the user still has to interpret what these numbers mean for their specific need.
+
+**AI Reasoning on Cards** replaces generic metadata with **contextual, per-product reasoning**:
+
+| Traditional Card | AI Reasoning Card |
+|------------------|-------------------|
+| ★★★★½ (338 reviews) | "Great for creative offices — adds personality without being too loud" |
+| "Best Seller" badge | "Versatile enough for client meetings and casual Fridays" |
+| "Relaxed fit" tag | "The relaxed cut works well if you're on your feet at a kids' party" |
+
+**Why this matters**:
+- Rating/reviews tell you what OTHER people thought — not whether it fits YOUR need
+- AI reasoning tells you WHY this product matches YOUR specific query
+- If AI is good enough, it doesn't need to rely on metadata, categories, and SKUs to make smart recommendations
+- Price remains visible (critical for decision-making) but the primary differentiator becomes the reasoning
+
+**Implementation**: The `product_insights` from Stage 2b should include a brief `card_reason` (1 line, ~10-15 words) that appears on the card when AI Reasoning mode is enabled.
+
+**UI**: Toggle exists in prototype (`aiReasoningMode`). When ON:
+- Card shows: Image, Product Name, Price, **AI Reason** (1 line)
+- Card hides: Rating, review count, description, tags
+
 ---
 
 ## 2. Current Architecture (What's Broken)
@@ -235,7 +265,8 @@ Return JSON:
       "id": "product_id",
       "why_selected": "Why this product fits the user's need",
       "best_for": "When/who would choose this option",
-      "differentiator": "What makes this unique vs others shown"
+      "differentiator": "What makes this unique vs others shown",
+      "card_reason": "Brief 10-15 word reason shown ON the card (e.g., 'Perfect for creative offices — adds personality without being too loud')"
     }
   ],
   "suggested_follow_ups": [
@@ -563,7 +594,79 @@ export interface RerankAndRespondResult {
 
 ---
 
-### Priority 7 (Deferred): Update Mock Mode
+### Priority 7: Wire AI Reasoning to Product Cards
+
+**What**: Display per-product AI reasoning on cards instead of generic metadata
+
+**Why**: This is a key differentiator. Traditional metadata (ratings, tags) tells users what others thought — AI reasoning tells users why THIS product fits THEIR specific need.
+
+**Philosophy**: If AI is good enough, it doesn't need ratings, categories, and SKUs to make smart recommendations. The reasoning IS the value.
+
+**Files**: `src/App.tsx`, `src/components/ProductCard.tsx` (or equivalent)
+
+**Changes**:
+
+1. **Pass `product_insights` to the card renderer**:
+
+The `product_insights` from Stage 2b includes `card_reason` for each product. This needs to flow from `queryFin` → `handleSend` → `AgentMessage` → `ProductCard`.
+
+```typescript
+// In the message/product data structure, include:
+interface ProductWithInsight extends Product {
+  card_reason?: string;  // From product_insights[].card_reason
+}
+```
+
+2. **Update ProductCard to show AI reason when `aiReasoningMode` is ON**:
+
+```typescript
+// ProductCard component (pseudocode)
+if (aiReasoningMode && product.card_reason) {
+  // Show: Image, Name, Price, card_reason
+  // Hide: Rating, reviewCount, description, tags, badges
+  return (
+    <Card>
+      <Image />
+      <Name />
+      <Price />
+      <AIReason>{product.card_reason}</AIReason>  {/* NEW */}
+    </Card>
+  );
+} else {
+  // Show traditional metadata
+  return (
+    <Card>
+      <Image />
+      <Name />
+      <Price />
+      <Rating />
+      <Description />
+      {/* etc */}
+    </Card>
+  );
+}
+```
+
+3. **Style the AI reason**:
+- Font: Slightly smaller than product name, but readable
+- Color: Muted but not gray (this is valuable content)
+- Length: 1-2 lines max (~50-80 characters)
+- Tone: Conversational, specific to user's query
+
+**Examples of good card_reason text**:
+- "Great for creative offices — adds personality without being too loud"
+- "The relaxed fit works well if you're on your feet all day"
+- "Versatile enough for client meetings and casual Fridays"
+- "Warm without bulk — perfect for running around at a kids' party"
+
+**Test**: 
+1. Enable "AI Reasoning on Cards" toggle
+2. Query "casual jacket for work"
+3. Verify cards show brief AI reason instead of star rating
+
+---
+
+### Priority 8 (Deferred): Update Mock Mode
 
 **What**: Make `queryFinMock` consistent with new behavior
 
@@ -603,8 +706,15 @@ export interface RerankAndRespondResult {
 | Section | Change |
 |---------|--------|
 | Component state | Add `productsShownThisSession` state (Priority 3) |
-| `handleSend` | Track shown products, pass to queryFin (Priority 3) |
+| `handleSend` | Track shown products, pass to queryFin, attach card_reason to products (Priorities 3, 7) |
 | `clearConversation` | Also clear shown products (Priority 3) |
+
+### `src/components/ProductCard.tsx` (or card component)
+
+| Section | Change |
+|---------|--------|
+| Card render | Conditionally show `card_reason` when `aiReasoningMode` is ON (Priority 7) |
+| Props | Accept `card_reason` and `aiReasoningMode` props (Priority 7) |
 
 ---
 
@@ -635,6 +745,7 @@ These MUST work before considering the fix complete:
 | Real differentiation | "Product X is... Product Y is..." uses actual names from results |
 | Contextual follow-ups | Follow-up suggestions relate to actual products/query |
 | Variety in results | 4-6 products with different price points/styles |
+| AI Reasoning on Cards | Toggle ON → cards show brief contextual reason instead of star rating |
 
 ### Regression Tests (Must Not Break)
 
@@ -699,11 +810,25 @@ Execute in this exact order:
 14. **Test**: Query "casual jacket" then "something cheaper"
     - Should show lower-priced jackets from same category
 
+### Day 2: AI Reasoning on Cards
+
+15. **Attach card_reason to products** in handleSend (Priority 7)
+    - Map product_insights to products by ID
+    - Include card_reason in product data passed to cards
+
+16. **Update ProductCard** to show AI reason (Priority 7)
+    - When aiReasoningMode ON: show card_reason instead of rating/description
+    - Style: 1-2 lines, conversational, specific to query
+
+17. **Test**: Toggle "AI Reasoning on Cards" ON, query "casual jacket for work"
+    - Cards should show brief contextual reason
+    - NOT star ratings or generic description
+
 ### Day 2: Cleanup
 
-15. **Remove response fields from Stage 1 schema** (Priority 6)
-16. **Run full test suite** (Section 6)
-17. **Fix any regressions**
+18. **Remove response fields from Stage 1 schema** (Priority 6)
+19. **Run full test suite** (Section 6)
+20. **Fix any regressions**
 
 ---
 
