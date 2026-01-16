@@ -738,12 +738,14 @@ function App() {
                     <span className="ml-2 font-medium text-gray-800">{lastResponse.llmResponse.decision.renderer}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Item Count:</span>
-                    <span className="ml-2 font-medium text-gray-800">{lastResponse.llmResponse.decision.item_count}</span>
+                    <span className="text-gray-500">Requested:</span>
+                    <span className="ml-2 font-medium text-gray-800">{lastResponse.llmResponse.decision.item_count} items</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Needs Clarification:</span>
-                    <span className="ml-2 font-medium text-gray-800">{lastResponse.llmResponse.decision.needs_clarification ? 'Yes' : 'No'}</span>
+                    <span className="text-gray-500">Returned:</span>
+                    <span className={`ml-2 font-medium ${lastResponse.products.length === 0 ? 'text-red-600' : lastResponse.products.length < lastResponse.llmResponse.decision.item_count ? 'text-amber-600' : 'text-green-600'}`}>
+                      {lastResponse.products.length} items
+                    </span>
                   </div>
                 </div>
               </div>
