@@ -97,7 +97,6 @@ function App() {
   const [aiReasoningMode, setAiReasoningMode] = useState(false);
   const [cardConfig, setCardConfig] = useState<CardConfig>({
     ...DEFAULT_CARD_CONFIG,
-    showDescription: false,
     showViewDetailsLarge: false,
   });
   const [allProducts, setAllProducts] = useState<Product[]>([]);

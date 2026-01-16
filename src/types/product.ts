@@ -140,8 +140,8 @@ export const DEFAULT_CARD_CONFIG: CardConfig = {
   showImage: true,
   showTitle: true,
   showPrice: true,
-  showRating: true,
-  showDescription: false,
+  showRating: false,  // Off by default - AI reasoning is the differentiator
+  showDescription: true,  // On by default
   showVariants: false,
   showPromoBadge: false, // Disabled - not using promo badges
   showAddToCart: false,
