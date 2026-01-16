@@ -516,15 +516,30 @@ interface OpenAIConfig {
   temperature: number;
 }
 
-// Auto-configure from environment variable
+interface AnthropicConfig {
+  apiKey: string;
+  model: string;
+}
+
+// Auto-configure from environment variables
 const config: OpenAIConfig = {
   apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
   model: 'gpt-4o', // Fast, capable, good for intent detection
   temperature: 0.3,
 };
 
+const anthropicConfig: AnthropicConfig = {
+  apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY || '',
+  model: 'claude-sonnet-4-20250514', // Excellent at natural writing and following instructions
+};
+
 export function isConfigured(): boolean {
-  return config.apiKey.length > 0;
+  // Either OpenAI or Anthropic key works
+  return config.apiKey.length > 0 || anthropicConfig.apiKey.length > 0;
+}
+
+function isAnthropicConfigured(): boolean {
+  return anthropicConfig.apiKey.length > 0;
 }
 
 // ============================================================================
@@ -707,45 +722,78 @@ Return JSON with selected_ids (array of product IDs), response, product_insights
   try {
     console.log('[RerankAndRespond] Processing', candidateInfo.length, 'candidates for:', userQuery);
     
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o', // Better at following nuanced instructions for card_reason
-        messages: [
-          { role: 'system', content: RERANK_AND_RESPOND_PROMPT },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.3, // Slightly higher for natural-sounding responses
-        response_format: { type: 'json_object' },
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[RerankAndRespond] API error:', errorText);
-      // Fallback: return candidates with empty response
-      return {
-        selected_ids: candidates.slice(0, maxResults).map(p => p.id),
-        response: {
-          intent_acknowledgment: 'Here are some options that might work for you.',
-          selection_explanation: '',
-          product_highlights: '',
-          follow_up_question: 'Would any of these work for what you need?',
+    let rawContent: string;
+    
+    // Use Claude if available, otherwise fall back to OpenAI
+    if (isAnthropicConfigured()) {
+      console.log('[RerankAndRespond] Using Claude:', anthropicConfig.model);
+      
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthropicConfig.apiKey,
+          'anthropic-version': '2023-06-01',
         },
-        product_insights: [],
-        suggested_follow_ups: []
-      };
-    }
+        body: JSON.stringify({
+          model: anthropicConfig.model,
+          max_tokens: 4096,
+          system: RERANK_AND_RESPOND_PROMPT,
+          messages: [
+            { role: 'user', content: userPrompt + '\n\nRespond with valid JSON only.' },
+          ],
+        }),
+      });
 
-    const data = await response.json();
-    const rawContent = data.choices[0].message.content;
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[RerankAndRespond] Claude API error:', errorText);
+        throw new Error('Claude API error: ' + errorText);
+      }
+
+      const data = await response.json();
+      rawContent = data.content[0].text;
+      
+    } else {
+      console.log('[RerankAndRespond] Using OpenAI:', 'gpt-4o');
+      
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${config.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: RERANK_AND_RESPOND_PROMPT },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.3,
+          response_format: { type: 'json_object' },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[RerankAndRespond] OpenAI API error:', errorText);
+        throw new Error('OpenAI API error: ' + errorText);
+      }
+
+      const data = await response.json();
+      rawContent = data.choices[0].message.content;
+    }
+    
     console.log('[RerankAndRespond] Raw LLM response:', rawContent.substring(0, 500));
     
-    const result: RerankAndRespondResult = JSON.parse(rawContent);
+    // Extract JSON from response (Claude sometimes wraps in markdown code blocks)
+    let jsonContent = rawContent;
+    const jsonMatch = rawContent.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      jsonContent = jsonMatch[1].trim();
+    }
+    
+    const result: RerankAndRespondResult = JSON.parse(jsonContent);
 
     console.log('[RerankAndRespond] Selected IDs:', JSON.stringify(result.selected_ids));
     console.log('[RerankAndRespond] Candidate IDs (first 10):', JSON.stringify(candidateInfo.map(c => c.id).slice(0, 10)));
