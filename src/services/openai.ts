@@ -353,6 +353,7 @@ export function isConfigured(): boolean {
 // LLM Product Reranking (Retrieve & Rerank pattern)
 // ============================================================================
 
+// OLD prompt - kept for reference, will be removed after migration
 const RERANK_PROMPT = `You are a product selection AI. Given a user's shopping query and their understood intent, select the products that BEST match what the user is looking for.
 
 Consider:
@@ -385,6 +386,102 @@ If NO products match well, return:
   "product_insights": []
 }`;
 
+// NEW: Combined rerank + response generation prompt (Priority 1 fix)
+// This generates the response AFTER seeing the actual products
+const RERANK_AND_RESPOND_PROMPT = `You are a product selection and response AI for a fashion shopping assistant.
+
+## Your Task
+
+Given a user's query, their understood intent, and product candidates:
+1. Select the products that BEST match the user's need (max 6)
+2. Write a response that demonstrates understanding and reasoning
+3. Generate contextual follow-up suggestions
+
+## Selection Rules
+
+- Match products to the USE CASE, not just the category
+- Consider implicit constraints (e.g., "work" → professional styling)
+- Provide VARIETY: different price points, styles, formality levels
+- If user asked for specific attributes (color, price), prioritize exact matches
+- Only select products that genuinely match. Don't show random items.
+
+## Item Count Rules
+
+- Default to 4-6 items for discovery/browsing queries
+- Return 1-2 items only if user asked for "the best" or "your top recommendation"
+- Never return fewer than 2 items for browsing intent unless catalog is limited
+- If many good matches exist, show variety
+
+## Response Quality Rules
+
+Your response MUST demonstrate intelligence, not just retrieval:
+
+1. **Acknowledge intent**: Show you understood the UNDERLYING need, not just keywords
+   - BAD: "Here are some jackets!"
+   - GOOD: "For work, you'll want something professional in meetings but relaxed for everyday."
+
+2. **Explain selection**: Why THESE specific products (reference actual names you see)
+   - BAD: "I found these options"
+   - GOOD: "I selected these for their clean lines and versatile styling"
+
+3. **Differentiate products**: When would you pick each one? USE ACTUAL PRODUCT NAMES.
+   - BAD: "All great options!"
+   - GOOD: "The [Actual Product Name] is understated and works anywhere. The [Another Name] adds personality."
+
+4. **Contextual follow-up**: Relevant next step, NOT generic "anything else?"
+   - BAD: "Is there anything else I can help with?"
+   - GOOD: "Are you thinking traditional office or more relaxed dress code?"
+
+CRITICAL: You can SEE the actual products. Reference them BY NAME in product_highlights.
+
+## If No Good Matches
+
+If the candidates don't match the query well:
+- Set selected_ids to empty array
+- Acknowledge the gap honestly in response
+- Explain what's available instead
+- Ask if alternatives would help
+
+## Output Format
+
+Return JSON:
+{
+  "selected_ids": ["id1", "id2", ...],
+  "response": {
+    "intent_acknowledgment": "For [use case], you'll want [key consideration].",
+    "selection_explanation": "I selected these because [reasoning about THESE SPECIFIC products].",
+    "product_highlights": "[Actual Product Name] is [differentiation]. [Another Product Name] is [differentiation].",
+    "follow_up_question": "[Contextual question based on what was shown]"
+  },
+  "product_insights": [
+    {
+      "id": "product_id",
+      "why_selected": "Why this product fits the user's need",
+      "best_for": "When/who would choose this option",
+      "differentiator": "What makes this unique vs others shown",
+      "card_reason": "Brief 10-15 word reason for the card (e.g., 'Perfect for creative offices — adds personality without being too loud')"
+    }
+  ],
+  "suggested_follow_ups": [
+    {"label": "Different price range", "query": "Show me similar but under £50"},
+    {"label": "Other colors", "query": "Do these come in other colors?"},
+    {"label": "Complete the look", "query": "What would go well with these?"}
+  ]
+}
+
+If no good matches:
+{
+  "selected_ids": [],
+  "response": {
+    "intent_acknowledgment": "I understand you're looking for [X].",
+    "selection_explanation": "Unfortunately, I couldn't find products that closely match.",
+    "product_highlights": "",
+    "follow_up_question": "Would you like me to show [alternatives] instead?"
+  },
+  "product_insights": [],
+  "suggested_follow_ups": [...]
+}`;
+
 interface ProductCandidate {
   id: string;
   name: string;
@@ -399,12 +496,26 @@ interface ProductInsight {
   why_selected: string;
   best_for: string;
   differentiator: string;
+  card_reason?: string; // Brief reason shown ON the card (10-15 words)
 }
 
 interface RerankResult {
   selected_ids: string[];
   overall_reasoning: string;
   product_insights: ProductInsight[];
+}
+
+// NEW: Result from combined rerank + response generation (Priority 1 fix)
+interface RerankAndRespondResult {
+  selected_ids: string[];
+  response: {
+    intent_acknowledgment: string;
+    selection_explanation: string;
+    product_highlights: string;
+    follow_up_question: string;
+  };
+  product_insights: ProductInsight[];
+  suggested_follow_ups: SuggestedFollowUp[];
 }
 
 /**
@@ -491,6 +602,125 @@ Select the products that best match the user's query and intent. Return JSON wit
       selected_ids: candidates.slice(0, maxResults).map(p => p.id),
       overall_reasoning: 'Rerank failed, using default order',
       product_insights: []
+    };
+  }
+}
+
+/**
+ * NEW: Combined rerank + response generation (Priority 1 fix)
+ * 
+ * This is the key architectural fix: generate response AFTER seeing actual products.
+ * The LLM sees the product candidates and:
+ * 1. Selects the best matches
+ * 2. Writes a response that references actual product names
+ * 3. Generates per-product insights for card_reason display
+ * 4. Creates contextual follow-up suggestions
+ */
+async function rerankAndRespond(
+  userQuery: string,
+  understoodIntent: LLMUnderstoodIntent | null,
+  candidates: Product[],
+  maxResults: number = 6
+): Promise<RerankAndRespondResult> {
+  // Fallback for no candidates or no API key
+  if (!isConfigured() || candidates.length === 0) {
+    return {
+      selected_ids: candidates.slice(0, maxResults).map(p => p.id),
+      response: {
+        intent_acknowledgment: '',
+        selection_explanation: '',
+        product_highlights: '',
+        follow_up_question: '',
+      },
+      product_insights: [],
+      suggested_follow_ups: []
+    };
+  }
+
+  // Prepare candidate info for the LLM (include enough detail for good responses)
+  const candidateInfo: ProductCandidate[] = candidates.slice(0, 30).map(p => ({
+    id: p.id,
+    name: p.name,
+    description: p.description || '',
+    price: p.price,
+    brand: p.brand,
+    rating: p.rating,
+  }));
+
+  // Build context about what the user wants
+  const intentContext = understoodIntent
+    ? `
+User's understood intent:
+- Explicit need: ${understoodIntent.explicit_need}
+- Implicit constraints: ${understoodIntent.implicit_constraints.join(', ')}
+- Context: ${understoodIntent.inferred_context}
+- Decision stage: ${understoodIntent.decision_stage}`
+    : '';
+
+  const userPrompt = `User query: "${userQuery}"${intentContext}
+
+Product candidates (select up to ${maxResults} that best match, then write a response):
+${JSON.stringify(candidateInfo, null, 2)}
+
+Select the best products AND write a response that references them by name. Return JSON with selected_ids, response, product_insights, and suggested_follow_ups.`;
+
+  try {
+    console.log('[RerankAndRespond] Processing', candidateInfo.length, 'candidates for:', userQuery);
+    
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini', // Fast and capable for this task
+        messages: [
+          { role: 'system', content: RERANK_AND_RESPOND_PROMPT },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.3, // Slightly higher for natural-sounding responses
+        response_format: { type: 'json_object' },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[RerankAndRespond] API error:', errorText);
+      // Fallback: return candidates with empty response
+      return {
+        selected_ids: candidates.slice(0, maxResults).map(p => p.id),
+        response: {
+          intent_acknowledgment: 'Here are some options that might work for you.',
+          selection_explanation: '',
+          product_highlights: '',
+          follow_up_question: 'Would any of these work for what you need?',
+        },
+        product_insights: [],
+        suggested_follow_ups: []
+      };
+    }
+
+    const data = await response.json();
+    const result: RerankAndRespondResult = JSON.parse(data.choices[0].message.content);
+
+    console.log('[RerankAndRespond] Selected:', result.selected_ids.length, 'products');
+    console.log('[RerankAndRespond] Response preview:', result.response.intent_acknowledgment?.substring(0, 50) + '...');
+
+    return result;
+  } catch (error) {
+    console.error('[RerankAndRespond] Error:', error);
+    // Fallback
+    return {
+      selected_ids: candidates.slice(0, maxResults).map(p => p.id),
+      response: {
+        intent_acknowledgment: 'Here are some options I found.',
+        selection_explanation: '',
+        product_highlights: '',
+        follow_up_question: '',
+      },
+      product_insights: [],
+      suggested_follow_ups: []
     };
   }
 }
@@ -583,18 +813,22 @@ export async function queryFin(
     const data = await response.json();
     llmEndTime = performance.now();
 
-    // Parse LLM response
+    // Parse LLM response (Stage 1: classification + understood_intent)
     const llmResponse: LLMResponse = JSON.parse(data.choices[0].message.content);
 
-    // Search for products if needed (on-demand from HuggingFace)
-    // Using Retrieve & Rerank pattern:
-    // 1. Coarse retrieval: Get many candidates by category
-    // 2. LLM Reranking: Have LLM select the best matches for the full semantic query
+    // Initialize response variables
     let products: Product[] = [];
-    let responseText = composeResponseText(llmResponse.response, llmResponse.decision.show_products);
+    let responseText = '';
+    let suggestedFollowUps: SuggestedFollowUp[] = llmResponse.suggested_follow_ups || [];
 
+    // For non-product responses (support, ambiguous), use Stage 1 response
+    if (!llmResponse.decision.show_products) {
+      responseText = composeResponseText(llmResponse.response, false);
+    }
+
+    // For product responses, use Stage 2b (rerank + respond)
     if (llmResponse.decision.show_products && llmResponse.product_search) {
-      // Step 1: Coarse retrieval - get MORE candidates than needed for reranking
+      // Step 1: Coarse retrieval - get candidates by category
       const searchResult = await searchProducts({
         query: llmResponse.product_search.query,
         subcategory: llmResponse.product_search.subcategory,
@@ -604,10 +838,11 @@ export async function queryFin(
       });
 
       if (searchResult.products.length > 0) {
-        // Step 2: LLM Reranking - have LLM select the best matches
-        const rerankResult = await rerankProducts(
-          userMessage, // Use original user query for semantic matching
-          llmResponse.understood_intent, // Pass understood intent for better matching
+        // Step 2: Combined rerank + response generation (THE KEY FIX)
+        // Response is generated AFTER seeing actual products
+        const rerankResult = await rerankAndRespond(
+          userMessage,
+          llmResponse.understood_intent,
           searchResult.products,
           llmResponse.decision.item_count
         );
@@ -619,18 +854,25 @@ export async function queryFin(
 
         products = selectedProducts;
 
-        // If LLM found no good matches, be honest
-        if (products.length === 0) {
-          responseText = `I found some ${llmResponse.product_search.subcategory || 'products'}, but none that closely match "${userMessage}". ${rerankResult.overall_reasoning}`;
-          llmResponse.decision.show_products = false;
-        } else {
-          // Add rerank reasoning to the response
+        // Use response from Stage 2b (which references actual products)
+        if (products.length > 0) {
+          responseText = composeResponseText(rerankResult.response, true);
+          suggestedFollowUps = rerankResult.suggested_follow_ups || suggestedFollowUps;
+          
+          // Store product insights for debugging and potential card_reason display
           llmResponse.reasoning.product_reasoning = rerankResult.product_insights.map(
             p => `${p.why_selected} (${p.differentiator})`
           );
+        } else {
+          // Reranker found no good matches
+          responseText = rerankResult.response.intent_acknowledgment + ' ' + 
+                        rerankResult.response.selection_explanation + ' ' +
+                        rerankResult.response.follow_up_question;
+          responseText = responseText.replace(/\s+/g, ' ').trim();
+          llmResponse.decision.show_products = false;
         }
       } else {
-        // No candidates found at all
+        // No candidates found at all from coarse retrieval
         const query = llmResponse.product_search.query?.toLowerCase() || '';
         const shoeWords = ['shoe', 'shoes', 'sneaker', 'trainer', 'running', 'boot', 'heel', 'sandal'];
         const isShoeQuery = shoeWords.some(w => query.includes(w));
@@ -648,7 +890,7 @@ export async function queryFin(
     return {
       llmResponse,
       products,
-      suggestedFollowUps: llmResponse.suggested_follow_ups || [],
+      suggestedFollowUps,
       responseText,
       latency: {
         total: searchEndTime - startTime,
