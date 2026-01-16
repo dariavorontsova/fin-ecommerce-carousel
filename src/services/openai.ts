@@ -557,56 +557,37 @@ Select the best products (max 6) and write a BRIEF response.
 
 Your response should be 2-3 short sentences MAX. The cards do the heavy lifting.
 
-## MOST IMPORTANT: card_reason — REASON About What's Relevant
+## card_reason — STRICT FORMAT
 
-You have access to: name, description, brand, price, rating.
+For each product, card_reason must follow this EXACT structure:
 
-**Your job:** Figure out which details from THIS product are MOST RELEVANT to THIS user's need. Don't list everything — pick what matters.
+"[Item type from name]. [ONE specific feature from description that serves their need]."
 
-### How to think about each piece of data:
+That's it. Two parts. Nothing else.
 
-**Product type (from name)**
-- Include when: Not obvious what the item is, or distinguishing similar items
-- Skip when: Obvious from context (a dress is clearly a dress)
+BANNED PHRASES (never use these):
+- "keeps you warm"
+- "perfect for"
+- "not only... but also"
+- "offers"
+- "provides"
+- "combines"
+- "makes a bold"
+- "essential warmth"
+- "great for"
+- Any marketing language
 
-**Features (from description)**
-- Include when: A feature DIRECTLY serves the user's implicit need
-- Example: "winter clothes" → user needs warmth → "fleece lining" is relevant
-- Example: "beach vacation" → user needs packable → "lightweight" is relevant
-- Skip: Features that don't connect to their specific need
+GOOD examples for "winter clothes":
+- "Puffer jacket. Fleece-lined interior for insulation."
+- "Wool jumper. Chunky knit, oversized fit for layering."
+- "Rainforest parka. Water-resistant shell, hood with drawstring."
 
-**Brand**
-- Include when: Brand reputation adds context (Napapijri = outdoor expertise, Nike = athletic performance)
-- Skip when: Generic brand that adds nothing (ASOS Design, basic house brands)
+BAD examples (DO NOT WRITE LIKE THIS):
+- "This jacket keeps you warm while making a bold statement" ← BANNED
+- "Perfect for layering, this jumper provides essential warmth" ← BANNED
+- "This versatile piece offers warmth and style" ← BANNED
 
-**Price**
-- Include when: It's a notable differentiator ("budget-friendly at £36" vs others at £150+)
-- Skip when: Mid-range and unremarkable
-
-**Rating**
-- Include when: Exceptionally high (4.5+) as social proof differentiator
-- Skip when: Average (4.2 is normal, not worth mentioning)
-
-### The key: SAME product, DIFFERENT reasons based on user context
-
-Product: Napapijri Rainforest Jacket (fleece-lined, water-resistant, £200)
-
-For "winter clothes" (user needs: warmth, weather protection):
-→ "Fleece-lined interior for warmth, water-resistant shell handles rain and snow"
-
-For "stylish outerwear" (user needs: looks good):
-→ "Napapijri's classic outdoor aesthetic — works for city or trail"
-
-For "gift for outdoorsy friend" (user needs: quality, brand recognition):
-→ "Napapijri is a go-to outdoor brand — this is their signature piece"
-
-### Bad examples (don't do this):
-
-- Generic fluff: "Perfect for staying warm" (not grounded in product)
-- Metadata dump: "Fleece-lined, water-resistant, adjustable hood, £200, 4.2★" (no reasoning)
-- Irrelevant details: Mentioning brand when it's generic, rating when it's average
-
-### Each card_reason should feel like a knowledgeable friend explaining why they'd pick THIS one.
+Extract ACTUAL features from the product's description field. Do not invent generic benefits.
 
 ## Output Format
 
@@ -625,7 +606,7 @@ Return JSON:
       "why_selected": "Brief reason",
       "best_for": "Who/when",
       "differentiator": "What's unique vs others shown",
-      "card_reason": "Reason about which product details are RELEVANT to this user's need. Pick what matters, skip what doesn't. Like a knowledgeable friend explaining their pick."
+      "card_reason": "STRICT: '[Item type]. [ONE feature from description].' No marketing language. Extract real features."
     }
   ],
   "suggested_follow_ups": [
