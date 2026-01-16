@@ -34,7 +34,7 @@ export function MessengerComposer({
   };
 
   return (
-    <div className="p-4 bg-white">
+    <div className="px-4 pb-4 bg-white">
       <form onSubmit={handleSubmit}>
         <div 
           style={{ 

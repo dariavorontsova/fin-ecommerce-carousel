@@ -6,7 +6,6 @@ import { getAllProducts } from './data/products';
 import {
   queryFinMock,
   queryFin,
-  configureOpenAI,
   isConfigured,
   ConversationMessage,
   FinResponse,
@@ -71,10 +70,9 @@ function App() {
   const [productsLoading, setProductsLoading] = useState(true);
 
   // LLM Integration state
-  const [useLLM, setUseLLM] = useState(false);
-  const [apiKey, setApiKey] = useState('');
   const [lastResponse, setLastResponse] = useState<FinResponse | null>(null);
   const conversationHistoryRef = useRef<ConversationMessage[]>([]);
+  const llmConfigured = isConfigured();
 
   // Product preview state (using subcategory since all products are 'clothing')
   const [previewSubcategory, setPreviewSubcategory] = useState<string>('');
@@ -101,7 +99,7 @@ function App() {
     loadProducts();
   }, []);
 
-  // Handle sending a new message - uses LLM or mock based on toggle
+  // Handle sending a new message - uses LLM if configured, otherwise mock
   const handleSend = useCallback(async (content: string) => {
     // Add user message
     const userMsg = createUserMessage(content);
@@ -117,11 +115,7 @@ function App() {
 
       let response: FinResponse;
 
-      if (useLLM && apiKey) {
-        // Configure OpenAI if not already
-        if (!isConfigured()) {
-          configureOpenAI(apiKey);
-        }
+      if (llmConfigured) {
         response = await queryFin(content, history);
       } else {
         // Use mock mode
@@ -185,7 +179,7 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, useLLM, apiKey, cardLayout]);
+  }, [messages, llmConfigured, cardLayout]);
 
   const toggleConfig = (key: keyof CardConfig) => {
     setCardConfig(prev => ({ ...prev, [key]: !prev[key] }));
@@ -491,55 +485,15 @@ function App() {
 
           <Separator className="bg-neutral-200" />
 
-          {/* LLM Mode Toggle */}
-          <div className="space-y-3">
-            <Label className="text-xs text-neutral-500 uppercase tracking-wide">
-              AI Backend
-            </Label>
-            <div className="flex items-center justify-between">
-              <div className="flex-1 pr-4">
-                <Label htmlFor="useLLM" className="text-sm font-medium text-neutral-900 cursor-pointer block">
-                  Use OpenAI
-                </Label>
-                <p className="text-xs text-neutral-500 mt-0.5">
-                  {useLLM ? 'Real LLM decisions' : 'Mock responses'}
-                </p>
-              </div>
-              <Switch
-                id="useLLM"
-                checked={useLLM}
-                onCheckedChange={setUseLLM}
-              />
+          {/* AI Status */}
+          <div className={`p-3 rounded-lg border ${llmConfigured ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+            <div className={`font-medium text-sm ${llmConfigured ? 'text-green-800' : 'text-amber-800'}`}>
+              {llmConfigured ? '🟢 LLM Mode' : '🟡 Mock Mode'}
             </div>
-
-            {useLLM && (
-              <div className="space-y-2">
-                <Label htmlFor="apiKey" className="text-xs text-neutral-500">
-                  OpenAI API Key
-                </Label>
-                <Input
-                  id="apiKey"
-                  type="password"
-                  placeholder="sk-..."
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  className="text-sm"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Mode Status */}
-          <div className={`p-3 rounded-lg border ${useLLM && apiKey ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
-            <div className={`font-medium text-sm ${useLLM && apiKey ? 'text-green-800' : 'text-amber-800'}`}>
-              {useLLM && apiKey ? '🟢 LLM Mode' : '🟡 Mock Mode'}
-            </div>
-            <div className={`text-xs mt-1 ${useLLM && apiKey ? 'text-green-700' : 'text-amber-700'}`}>
-              {useLLM && apiKey 
-                ? 'Using GPT-4o-mini for intent detection & decisions'
-                : useLLM 
-                  ? 'Enter API key to enable LLM'
-                  : 'Using rule-based mock responses'
+            <div className={`text-xs mt-1 ${llmConfigured ? 'text-green-700' : 'text-amber-700'}`}>
+              {llmConfigured 
+                ? 'Using GPT-4o-mini for intent detection'
+                : 'Add VITE_OPENAI_API_KEY to .env for LLM mode'
               }
             </div>
             {lastResponse && (

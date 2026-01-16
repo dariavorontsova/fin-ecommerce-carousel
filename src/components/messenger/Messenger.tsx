@@ -56,13 +56,23 @@ export function Messenger({
         onClose={onClose}
       />
       
-      <MessengerThread
-        messages={messages}
-        cardConfig={cardConfig}
-        layout={layout}
-        isLoading={isLoading}
-        aiReasoningMode={aiReasoningMode}
-      />
+      <div className="relative flex-1 min-h-0">
+        <MessengerThread
+          messages={messages}
+          cardConfig={cardConfig}
+          layout={layout}
+          isLoading={isLoading}
+          aiReasoningMode={aiReasoningMode}
+        />
+        {/* Gradient fade at bottom of thread - 16px tall */}
+        <div 
+          className="absolute bottom-0 left-0 right-0 pointer-events-none"
+          style={{
+            height: '16px',
+            background: 'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 100%)',
+          }}
+        />
+      </div>
       
       <MessengerComposer 
         onSend={onSend}

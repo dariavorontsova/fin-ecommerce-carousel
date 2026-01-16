@@ -202,22 +202,19 @@ Always respond with valid JSON matching this schema:
 
 interface OpenAIConfig {
   apiKey: string;
-  model?: string;
-  temperature?: number;
+  model: string;
+  temperature: number;
 }
 
-let config: OpenAIConfig | null = null;
-
-export function configureOpenAI(apiKey: string, options?: Partial<OpenAIConfig>) {
-  config = {
-    apiKey,
-    model: options?.model || 'gpt-4o-mini',
-    temperature: options?.temperature ?? 0.3,
-  };
-}
+// Auto-configure from environment variable
+const config: OpenAIConfig = {
+  apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
+  model: 'gpt-4o-mini',
+  temperature: 0.3,
+};
 
 export function isConfigured(): boolean {
-  return config !== null && config.apiKey.length > 0;
+  return config.apiKey.length > 0;
 }
 
 export async function queryFin(
@@ -225,8 +222,8 @@ export async function queryFin(
   conversationHistory: ConversationMessage[] = [],
   context: ConversationContext = {}
 ): Promise<FinResponse> {
-  if (!config) {
-    throw new Error('OpenAI not configured. Call configureOpenAI first.');
+  if (!isConfigured()) {
+    throw new Error('OpenAI API key not set. Add VITE_OPENAI_API_KEY to your .env file.');
   }
 
   const startTime = performance.now();

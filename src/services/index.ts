@@ -1,5 +1,4 @@
 export {
-  configureOpenAI,
   isConfigured,
   queryFin,
   queryFinMock,

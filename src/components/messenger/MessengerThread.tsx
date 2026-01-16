@@ -28,9 +28,9 @@ export function MessengerThread({
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="flex-1 overflow-y-auto messenger-scroll bg-white">
-      {/* Figma: px-16px, gap-16px, pb-32px for composer gradient overlay space */}
-      <div className="px-4 pt-4 pb-8 flex flex-col gap-4">
+    <div className="h-full overflow-y-auto messenger-scroll bg-white">
+      {/* Figma: px-16px, gap-16px, pb-16px */}
+      <div className="px-4 pt-4 pb-4 flex flex-col gap-4">
         {isEmpty ? (
           <EmptyState />
         ) : (
