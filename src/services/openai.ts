@@ -10,7 +10,7 @@ import { searchProducts } from './productSearch';
 // Types
 // ============================================================================
 
-export type IntentType = 'shopping_discovery' | 'support' | 'ambiguous';
+export type IntentType = 'shopping_discovery' | 'support' | 'ambiguous' | 'refinement';
 export type RendererType = 'text_only' | 'single_card' | 'carousel';
 
 export interface LLMIntent {
@@ -140,6 +140,27 @@ Query has NO product type AND NO inferable context AND NO support signals.
 Examples: "help", "hi", "something"
 **Response**: Ask what they're looking for.
 
+### refinement — Modify Previous Search
+User wants to adjust the previous product search without starting over.
+
+**Signals**:
+- Price: "cheaper", "under £50", "more affordable", "higher end"
+- Color: "in blue", "darker colors", "something red"
+- Style: "more formal", "more casual", "something edgier"
+- Quantity: "show me more", "other options", "different ones", "any others?"
+- Similarity: "like that first one", "similar to the black one"
+
+**How to handle**:
+- Set intent.primary = "refinement"
+- Set show_products = true
+- Set product_search.query to describe the refinement (e.g., "jackets under £50", "blue dresses")
+- Keep the same subcategory from previous context if possible
+
+**NOT refinement** (these are new searches):
+- "Now show me dresses" → shopping_discovery (new category)
+- "What about shoes?" → shopping_discovery (new category)
+- "I need a jacket" → shopping_discovery (explicit product type)
+
 ## Decision Matrix
 
 | Has Category | Has Context | Action |
@@ -165,7 +186,7 @@ Always respond with a JSON object in this exact format:
 
 {
   "intent": {
-    "primary": "shopping_discovery" | "support" | "ambiguous",
+    "primary": "shopping_discovery" | "support" | "ambiguous" | "refinement",
     "confidence": 0.0-1.0,
     "signals": ["detected signals"]
   },
