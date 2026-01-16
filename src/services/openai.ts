@@ -593,14 +593,16 @@ Practical info that helps compare options. BUT vary your framing — no template
 
 **Good examples (notice: all different framings):**
 
-- "Warmest option here — quilt lining for serious cold"
-- "Budget pick at £35 — solid quality for the price"
-- "The dressy one — works for office or dinner out"
+- "Warmest option here; quilt lining for serious cold"
+- "Budget pick at £35, solid quality for the price"
+- "The dressy one, works for office or dinner out"
 - "Oversized fit leaves room for chunky sweaters underneath"
-- "Lightweight but warm — won't weigh you down on commute"
+- "Lightweight but warm, won't weigh you down on commute"
 - "Neutral color pairs with everything you own"
-- "Most coverage — longline hits below the knee"
-- "Statement piece — the hot pink stands out on grey days"
+- "Most coverage, longline hits below the knee"
+- "Statement piece, the hot pink stands out on grey days"
+
+**Don't use em-dashes (—)** they take up too much space on cards.
 
 **The pattern:** Lead with WHAT makes it different, not "pick this if you want X"
 
