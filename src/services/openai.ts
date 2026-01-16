@@ -579,22 +579,31 @@ Select the best products (max 6) and write a BRIEF response.
 
 Your response should be 2-3 short sentences MAX. The cards do the heavy lifting.
 
-## card_reason — CRITICAL
+## card_reason — Help Them DECIDE
 
-NEVER start with "This jacket", "This jumper", "Perfect for", or any generic template.
+Each card_reason should help the user understand WHY they might pick THIS one over others. Be useful, not just clever.
 
-Each product needs a DIFFERENT angle. Examples of what good looks like:
+**Good card_reasons answer practical questions:**
+- What's the warmth level? (light layer vs serious cold)
+- What's the value? (budget pick vs investment piece)
+- What's it best for? (commuting, weekends, dressy occasions)
+- What makes it different from the others shown?
 
-- "The £36 price point is unreal for this quality — budget pick"
-- "Napapijri is the outdoor brand fashion people actually respect"
-- "Oversized silhouette is all over TikTok right now"
-- "Classic piece that'll outlast five trend cycles"
-- "Bold choice — not for everyone but makes a statement"
-- "Exactly what you described, no compromises"
-- "4.8 stars from 500+ reviews — people love this one"
-- "The fleece lining is why this works for actual cold, not just autumn"
+**Examples that actually help decide:**
 
-Be a fashion-savvy friend with opinions. Be creative. Each card MUST sound different from the others.
+- "Warmest option here — quilt lining plus borg collar for serious cold"
+- "Budget pick at £66 — good quality for the price"
+- "Dressier than the others — works for office or evening"
+- "Most versatile — the neutral color goes with everything"
+- "Oversized fit means room for chunky sweaters underneath"
+- "Lightweight but warm — won't feel bulky on your commute"
+
+**Don't be:**
+- Overly cheeky ("screams 'I'm not freezing'") — cute but useless
+- Vague aesthetic references ("Pinterest winter vibes") — doesn't help decide
+- Generic marketing ("perfect for winter") — says nothing
+
+Each card should have a DIFFERENT practical angle that helps compare options.
 
 ## Output Format
 
@@ -613,7 +622,7 @@ Return JSON:
       "why_selected": "Brief reason",
       "best_for": "Who/when",
       "differentiator": "What's unique vs others shown",
-      "card_reason": "NEVER 'This X is...' or 'Perfect for...'. Each card needs a DIFFERENT angle (price, reviews, trend, bold choice, etc). Be a fashion friend with opinions."
+      "card_reason": "Help them DECIDE: warmth level, value, best use case, what makes it different. Practical, not cheeky. Each card = different angle."
     }
   ],
   "suggested_follow_ups": [
