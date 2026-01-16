@@ -28,6 +28,9 @@ import {
   SelectValue,
 } from './components/ui/select';
 
+// LocalStorage key for persisting conversation
+const CONVERSATION_STORAGE_KEY = 'fin-ecommerce-conversation';
+
 // Helper to create demo conversation with products
 function createDemoConversation(products: Product[]): Message[] {
   // Get jackets for the first query
@@ -53,6 +56,37 @@ function createDemoConversation(products: Product[]): Message[] {
       }
     ),
   ];
+}
+
+// Helper to save conversation to localStorage
+function saveConversation(messages: Message[]) {
+  try {
+    localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify(messages));
+  } catch (e) {
+    console.warn('Failed to save conversation:', e);
+  }
+}
+
+// Helper to load conversation from localStorage
+function loadConversation(): Message[] | null {
+  try {
+    const saved = localStorage.getItem(CONVERSATION_STORAGE_KEY);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.warn('Failed to load conversation:', e);
+  }
+  return null;
+}
+
+// Helper to clear saved conversation
+function clearSavedConversation() {
+  try {
+    localStorage.removeItem(CONVERSATION_STORAGE_KEY);
+  } catch (e) {
+    console.warn('Failed to clear conversation:', e);
+  }
 }
 
 function App() {
@@ -82,14 +116,19 @@ function App() {
   const [liveSearching, setLiveSearching] = useState(false);
   const [lastSearchResult, setLastSearchResult] = useState<SearchResult | null>(null);
 
-  // Load products from DummyJSON API on mount
+  // Load products and restore conversation on mount
   useEffect(() => {
     async function loadProducts() {
       try {
         const products = await getAllProducts();
         setAllProducts(products);
-        // Initialize demo conversation with loaded products
-        setMessages(createDemoConversation(products));
+        
+        // Try to restore saved conversation, otherwise start empty
+        const savedConversation = loadConversation();
+        if (savedConversation && savedConversation.length > 0) {
+          setMessages(savedConversation);
+        }
+        // Otherwise messages stay empty (user can load demo)
       } catch (error) {
         console.error('Failed to load products:', error);
       } finally {
@@ -98,6 +137,14 @@ function App() {
     }
     loadProducts();
   }, []);
+
+  // Persist conversation whenever it changes
+  useEffect(() => {
+    // Don't save during initial load
+    if (!productsLoading) {
+      saveConversation(messages);
+    }
+  }, [messages, productsLoading]);
 
   // Handle sending a new message - uses LLM if configured, otherwise mock
   const handleSend = useCallback(async (content: string) => {
@@ -128,7 +175,7 @@ function App() {
       conversationHistoryRef.current = [
         ...history,
         { role: 'user', content },
-        { role: 'assistant', content: response.llmResponse.response_text },
+        { role: 'assistant', content: response.responseText },
       ];
 
       // Map LLM response to our LLMDecision format
@@ -143,23 +190,22 @@ function App() {
           renderer: response.llmResponse.decision.renderer,
           item_count: response.llmResponse.decision.item_count,
           needs_clarification: response.llmResponse.decision.needs_clarification,
-          clarification_reason: response.llmResponse.decision.clarification_reason ?? undefined,
         },
         reasoning: {
           // Map from service field names to message type field names
           intent_rationale: response.llmResponse.reasoning.intent_explanation,
-          product_rationale: response.llmResponse.reasoning.renderer_explanation,
-          negative_signals: response.llmResponse.reasoning.confidence_factors,
+          product_rationale: response.llmResponse.reasoning.selection_reasoning,
+          negative_signals: response.llmResponse.reasoning.product_reasoning || [],
         },
         product_search: response.llmResponse.product_search ? {
           query: response.llmResponse.product_search.query,
-          category: response.llmResponse.product_search.category,
+          category: response.llmResponse.product_search.subcategory,
         } : undefined,
       };
 
       // Create agent message with products
       const agentResponse = createAgentMessage(
-        response.llmResponse.response_text,
+        response.responseText,
         {
           products: response.products,
           layout: cardLayout,
@@ -187,9 +233,10 @@ function App() {
 
   const clearConversation = () => {
     setMessages([]);
+    clearSavedConversation();
   };
 
-  const resetDemo = () => {
+  const loadDemoConversation = () => {
     if (allProducts.length > 0) {
       setMessages(createDemoConversation(allProducts));
     }
@@ -396,18 +443,22 @@ function App() {
             <Label className="text-xs text-neutral-500 uppercase tracking-wide">
               Conversation
             </Label>
+            <p className="text-xs text-neutral-500">
+              Conversation persists on reload
+            </p>
             <div className="flex gap-2">
-              <button
-                onClick={resetDemo}
-                className="px-3 py-1.5 text-xs bg-white border border-neutral-200 hover:bg-neutral-50 rounded-md transition-colors text-neutral-700"
-              >
-                Reset Demo
-              </button>
               <button
                 onClick={clearConversation}
                 className="px-3 py-1.5 text-xs bg-white border border-neutral-200 hover:bg-neutral-50 rounded-md transition-colors text-neutral-700"
               >
                 Clear
+              </button>
+              <button
+                onClick={loadDemoConversation}
+                disabled={productsLoading}
+                className="px-3 py-1.5 text-xs bg-white border border-neutral-200 hover:bg-neutral-50 disabled:opacity-40 rounded-md transition-colors text-neutral-700"
+              >
+                Load Demo
               </button>
             </div>
           </div>
@@ -492,7 +543,7 @@ function App() {
             </div>
             <div className={`text-xs mt-1 ${llmConfigured ? 'text-green-700' : 'text-amber-700'}`}>
               {llmConfigured 
-                ? 'Using GPT-5 for intent detection'
+                ? 'Using GPT-4o for intent detection'
                 : 'Add VITE_OPENAI_API_KEY to .env for LLM mode'
               }
             </div>

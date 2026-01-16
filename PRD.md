@@ -3,6 +3,16 @@
 
 ---
 
+## Document Navigation
+
+> **For AI Agents / New Contributors**: Start with these documents in order:
+>
+> 1. **[IMPLEMENTATION_ANALYSIS.md](./IMPLEMENTATION_ANALYSIS.md)** — **START HERE**. Contains current implementation state, known problems, and the action plan. This is the working document for what needs to be built/fixed.
+>
+> 2. **This document (PRD.md)** — Philosophy, success criteria, UI specifications, and schema. Reference when you need to understand the "why" behind decisions.
+
+---
+
 ## Summary
 
 Build an internal prototype to **test and iterate on the "when should Fin show product recommendations?" decision logic**, and to explore **card/carousel UI variants** inside a **pixel-perfect Messenger container**. 
@@ -14,6 +24,95 @@ This prototype is a **behavior + UI sandbox** to converge on:
 2. Rules for how many items to show and when
 3. The v1 card layout and metadata configuration
 4. Default vs Expanded messenger behavior
+
+---
+
+## Philosophy: The Meta Problem We're Solving
+
+### The Fundamental Question
+
+**Why should anyone use AI for e-commerce instead of traditional catalog browsing?**
+
+This prototype exists to answer that question with a compelling demonstration. We're not just building "chat + product cards." We're proving that AI-powered shopping is **fundamentally superior** to deterministic filtering.
+
+### What Traditional E-commerce Does
+
+Traditional e-commerce sites work like databases:
+- User types keywords → database filter → results sorted by some metric
+- User manually applies filters (price, color, size, brand)
+- User reads descriptions, compares products, makes decisions alone
+- Zero understanding of *why* the user wants something
+- No reasoning, no guidance, no personalization
+
+This works. But it's **labor-intensive for the user**. They do all the thinking.
+
+### What AI Shopping Should Do
+
+An AI shopping assistant should act like a **knowledgeable personal shopper**:
+- Understands the *intent behind* the query, not just keywords
+- Recognizes implicit constraints the user didn't explicitly state
+- Reasons about which products actually fit the use case
+- Explains *why* specific products were selected
+- Guides the user toward a decision with helpful follow-ups
+- Builds on conversation context over multiple turns
+
+The key insight: **The AI's unique value is synthesis and reasoning.** Any search filter can return "products tagged with X." Only AI can understand "casual jacket for work" means "professional enough for meetings, relaxed enough for everyday, versatile colors."
+
+### The Value Proposition We Must Prove
+
+For this prototype to succeed, users should experience:
+
+1. **"It gets me"** — The AI demonstrates understanding of their actual needs, including unspoken ones
+2. **"It's not just search"** — The response shows reasoning, not just results
+3. **"It's helping me decide"** — The AI guides toward a decision, not just dumps options
+4. **"It's actually faster"** — Natural language beats clicking through filter menus
+
+If users feel like they're talking to a smart search bar with a chat UI, we've failed.
+
+### What "Intelligence" Looks Like in Practice
+
+The AI demonstrates intelligence through:
+
+| Dimension | Dumb Behavior | Intelligent Behavior |
+|-----------|---------------|---------------------|
+| **Understanding** | "I found jackets" | "For work, you'll want something professional in meetings but not overdressed day-to-day" |
+| **Selection** | Returns anything tagged "jacket" | Selects pieces with clean lines, versatile colors, appropriate formality |
+| **Explanation** | "Here are some options" | "I picked these because they balance structure with casual comfort" |
+| **Differentiation** | Lists products | "The black one is understated; the orange adds personality for creative offices" |
+| **Guidance** | "Anything else?" | "Are you thinking traditional office or more relaxed dress code?" |
+
+### Anti-Patterns to Avoid
+
+These behaviors make the AI feel like a dumb search wrapper:
+
+- **Generic intros**: "Here are some great jackets!" (could be written without seeing any products)
+- **No reasoning**: Showing products without explaining *why these specific ones*
+- **No differentiation**: Treating all results as interchangeable options
+- **Generic follow-ups**: "Is there anything else I can help you with?"
+- **Over-clarifying**: Asking questions when enough context exists to make recommendations
+- **Ignoring implicit needs**: Treating "casual jacket for work" the same as "jacket"
+
+### Success Criteria (Philosophical)
+
+The prototype succeeds when:
+
+1. **A user asking "casual jacket for work" receives products selected for office-appropriateness**, not just any jackets
+2. **The response explains the selection logic** in terms the user cares about (versatility, dress code, occasions)
+3. **Each product is differentiated** — why you'd pick one vs another
+4. **Follow-up suggestions advance the shopping journey** — not generic "anything else?"
+5. **The experience feels like talking to someone who knows fashion**, not querying a database
+
+### Implications for Implementation
+
+This philosophy drives specific technical requirements:
+
+1. **Deep intent parsing**: Extract implicit constraints, not just explicit keywords
+2. **Product-to-need reasoning**: Match products to the *use case*, not just the category
+3. **Explanatory response generation**: Responses must demonstrate understanding
+4. **Contextual follow-ups**: Suggest next steps that are relevant to this specific query
+5. **Per-product differentiation**: Explain when/why you'd choose each option
+
+These are not nice-to-haves. They are the core value proposition.
 
 ---
 
@@ -121,8 +220,11 @@ This mirrors the production architecture where Fin's underlying model makes thes
 
 ### Output Schema (Strict JSON)
 
+The schema has two parts: **decision fields** (what to show) and **response quality fields** (how to respond intelligently).
+
 ```json
 {
+  // === DECISION FIELDS ===
   "intent": {
     "primary": "shopping_discovery | support | ambiguous",
     "sub_type": "browsing | product_inquiry | comparison | null",
@@ -143,21 +245,59 @@ This mirrors the production architecture where Fin's underlying model makes thes
     "constraints": ["under $100", "modern style", "for women", etc.],
     "sort_by": "relevance | price_low | price_high | rating | newest"
   },
+
+  // === INTENT UNDERSTANDING (demonstrates AI "gets it") ===
+  "understood_intent": {
+    "explicit_need": "The literal request (e.g., 'casual jacket for work')",
+    "implicit_constraints": ["office-appropriate", "versatile", "professional-casual"],
+    "inferred_context": "professional setting with dress code flexibility",
+    "decision_stage": "exploring | comparing | ready_to_buy"
+  },
+
+  // === RESPONSE QUALITY FIELDS ===
+  "response": {
+    "intent_acknowledgment": "Shows understanding of underlying need",
+    "selection_explanation": "Why these specific products were chosen",
+    "product_highlights": "Differentiation between products - when you'd pick each",
+    "follow_up_question": "Contextual next step (NOT generic 'anything else?')",
+    "full_response_text": "The complete conversational response"
+  },
+
+  // === REASONING (for debugging and QA) ===
   "reasoning": {
     "intent_explanation": "Why this intent classification",
-    "renderer_explanation": "Why this rendering choice", 
-    "confidence_factors": ["What increased/decreased confidence"]
+    "renderer_explanation": "Why this rendering choice",
+    "confidence_factors": ["What increased/decreased confidence"],
+    "selection_reasoning": "Why these products fit the understood intent"
   },
-  "response": {
-    "message_text": "The conversational response text"
-  }
+
+  // === CONTEXTUAL FOLLOW-UPS (for quick-reply buttons) ===
+  "suggested_follow_ups": [
+    { "label": "More formal options", "intent": "user wants dressier" },
+    { "label": "Show me matching items", "intent": "cross-sell" },
+    { "label": "Specific price range", "intent": "narrow by budget" }
+  ]
 }
 ```
 
-**Key change:** The LLM outputs `product_search` criteria, NOT specific product IDs. A separate filter function searches the mock catalog with these criteria and returns matching products. This:
-- Prevents the LLM from hallucinating product IDs
-- Mirrors production (where you'd call a real recommendation API)
-- Keeps the LLM focused on intent/decision, not product selection
+**Architecture Notes:**
+
+1. **Stage 1 - Classification**: LLM outputs decision fields + understood_intent + product_search criteria
+2. **Stage 2 - Retrieval + Reranking**: Coarse search returns candidates → LLM reranks based on semantic fit to understood_intent
+3. **Stage 3 - Response Generation**: LLM crafts response using understood_intent + selected products
+
+**Why this structure:**
+- `understood_intent` captures implicit constraints — this is what makes the AI feel intelligent
+- `response` fields ensure the response demonstrates reasoning, not just shows products
+- `suggested_follow_ups` enable contextual quick-reply buttons
+- Separation of concerns allows optimization of each stage independently
+
+**Key change:** The LLM outputs `product_search` criteria, NOT specific product IDs. A separate reranking step then:
+1. Retrieves candidates from catalog based on product_search
+2. Has LLM select/rank based on semantic fit to understood_intent
+3. Generates per-product reasoning for differentiation in the response
+
+This prevents hallucinated product IDs while ensuring semantic matching.
 
 ### Product Selection Flow
 
@@ -187,24 +327,57 @@ User Query → LLM Decision → product_search criteria → Filter Function → 
 
 ### Response Text Guidelines
 
-The LLM generates `message_text` alongside the product decision. Guidelines for the system prompt:
+The LLM generates `message_text` alongside the product decision. **The response is where AI value is demonstrated.** A generic response makes the AI feel like a search wrapper; an intelligent response shows understanding and reasoning.
+
+**The Four Components of an Intelligent Response:**
+
+1. **Intent Acknowledgment**: Show you understood the *underlying need*, not just keywords
+2. **Selection Explanation**: Explain *why* these specific products were chosen
+3. **Product Differentiation**: Help users understand *when they'd pick each option*
+4. **Contextual Follow-up**: Offer a relevant next step (NOT generic "anything else?")
+
+**Response Structure Template:**
+```
+[Intent acknowledgment — what you understood about their need]
+[Selection explanation — why these products]
+
+[Product differentiation — when you'd pick each]
+
+[Contextual follow-up — relevant next question or offer]
+```
+
+**Example (Good):**
+> For work, you'll want something professional enough for meetings but not overdressed for everyday. I selected these for their clean lines and versatile styling.
+>
+> The black Puma jacket is understated and works anywhere. The orange version adds personality — great if your office leans creative.
+>
+> Are you thinking traditional office or somewhere with a more relaxed dress code?
 
 **Rules for response text:**
-- **1-2 sentences max** before showing products
 - **Don't narrate** what you're showing ("Here are 3 lamps") — the cards speak for themselves
-- **DO explain your selection** briefly ("These work well with dark wood" or "Range of prices for you")
-- **For single card:** be specific about why this one ("This one's our most popular for small desks")
-- **For clarification:** ask ONE question, offer 2-3 options inline ("What type of shoes? Running, casual, or dress?")
+- **DO explain your reasoning** — why these products for this need
+- **DO differentiate products** — when you'd pick one vs another
+- **For single card:** be specific about why this one matches their need
+- **For clarification:** acknowledge what you understood, explain why you need more info, offer 2-3 specific options
 - **Never apologize** for showing products
-- **Keep it tight** — the cards are the content; the text is connective tissue
+- **Follow-ups must be contextual** — not generic "anything else?"
 
 **Examples:**
 
 | Scenario | Good ✓ | Bad ✗ |
 |----------|--------|-------|
-| Showing 3 lamps | "These would complement a dark wood desk nicely:" | "Here are 3 modern desk lamps I found for you based on your request:" |
-| Single recommendation | "This one's popular for home offices—great reviews on the dimmer." | "I recommend the Aurelia Task Lamp which has a rating of 4.7 stars." |
-| Clarification | "Running, casual, or something dressier?" | "I'd be happy to help you find shoes! Could you please tell me what type of shoes you're looking for?" |
+| "casual jacket for work" | "For work, you'll want something professional in meetings but relaxed for everyday. I selected these for clean lines and versatile colors. The black one is understated; the orange adds personality for creative offices. Traditional office or more relaxed dress code?" | "Here are some great jackets! Let me know if you need anything else." |
+| "red dress for summer party" | "For a summer party, red is a great choice for standing out. These have the fun-but-not-too-formal vibe you need. The midi is more versatile; the mini makes a bolder statement. Indoor or outdoor event?" | "Here are some red dresses I found for you based on your search." |
+| Single recommendation | "This one's popular for home offices—the touch dimmer is great for adjusting to video calls. It also comes in white if you prefer a lighter look." | "I recommend the Aurelia Task Lamp which has a rating of 4.7 stars." |
+| Clarification | "I'd love to help find the right jacket! To show you relevant options: are you looking for cold weather protection, rain gear, or just a stylish layer?" | "I'd be happy to help you find a jacket! Could you please tell me what kind of jacket you're looking for?" |
+
+**Anti-Patterns to Avoid:**
+- Generic greetings: "I'd be happy to help!" (adds no value)
+- Narrating actions: "Here are 4 jackets I found" (cards speak for themselves)
+- No reasoning: Showing products without explaining why
+- Over-enthusiasm: "Great choice! These are amazing!" (feels fake)
+- Generic follow-ups: "Anything else?" or "Let me know if you need help"
+- Treating products as interchangeable: No differentiation
 
 ---
 

@@ -33,12 +33,12 @@ const SUBCATEGORY_KEYWORDS: Record<string, string[]> = {
   'jeans': ['jeans', 'jean '],
   'trousers': ['trouser', 'chino', 'pant', 'cargo', 'jogger'],
   'shorts': ['shorts'],
-  'trainers': ['trainer', 'sneaker', 'running shoe'],
-  'boots': ['boot', 'chelsea'],
-  'heels': ['heel', 'stiletto', 'court shoe', 'pump'],
-  'sandals': ['sandal', 'slider'],
-  'loafers': ['loafer', 'moccasin'],
-  'flats': ['flat', 'ballet', 'ballerina'],
+  'trainers': ['trainer', 'trainers', 'sneaker', 'sneakers', 'running shoe'],
+  'boots': ['boot ', ' boots', 'ankle boot', 'knee boot'],
+  'heels': ['heel ', ' heels', 'stiletto', 'court shoe'],
+  'sandals': ['sandal', 'sandals', 'slider shoe', 'flip flop'],
+  'loafers': ['loafer', 'loafers', 'moccasin'],
+  'flats': [' flat ', 'ballet flat', 'ballerina shoe'],
   'bags': ['bag', 'tote', 'clutch', 'purse', 'handbag', 'satchel'],
   'backpacks': ['backpack', 'rucksack'],
   'scarves': ['scarf', 'snood'],
@@ -361,20 +361,124 @@ export async function searchProducts(options: SearchOptions = {}): Promise<Searc
   
   let results = [...catalog];
   
-  // Filter by query (search in name, description, brand, subcategory)
+  // Product type keywords that MUST match subcategory (not just appear anywhere)
+  const PRODUCT_TYPE_MAP: Record<string, string[]> = {
+    'shoe': ['trainers', 'boots', 'heels', 'sandals', 'loafers', 'flats'],
+    'shoes': ['trainers', 'boots', 'heels', 'sandals', 'loafers', 'flats'],
+    'sneaker': ['trainers'],
+    'sneakers': ['trainers'],
+    'trainer': ['trainers'],
+    'trainers': ['trainers'],
+    'boot': ['boots'],
+    'boots': ['boots'],
+    'heel': ['heels'],
+    'heels': ['heels'],
+    'sandal': ['sandals'],
+    'sandals': ['sandals'],
+    'jacket': ['jackets'],
+    'jackets': ['jackets'],
+    'coat': ['coats'],
+    'coats': ['coats'],
+    'blazer': ['blazers'],
+    'blazers': ['blazers'],
+    'dress': ['dresses'],
+    'dresses': ['dresses'],
+    'skirt': ['skirts'],
+    'skirts': ['skirts'],
+    'jean': ['jeans'],
+    'jeans': ['jeans'],
+    'trouser': ['trousers'],
+    'trousers': ['trousers'],
+    'pant': ['trousers'],
+    'pants': ['trousers'],
+    'short': ['shorts'],
+    'shorts': ['shorts'],
+    'top': ['tops', 't-shirts', 'blouses'],
+    'tops': ['tops', 't-shirts', 'blouses'],
+    'shirt': ['shirts', 't-shirts'],
+    'shirts': ['shirts', 't-shirts'],
+    't-shirt': ['t-shirts'],
+    'tshirt': ['t-shirts'],
+    'blouse': ['blouses'],
+    'jumper': ['jumpers'],
+    'sweater': ['jumpers', 'cardigans'],
+    'cardigan': ['cardigans'],
+    'hoodie': ['hoodies'],
+    'sweatshirt': ['sweatshirts'],
+    'bag': ['bags', 'backpacks'],
+    'bags': ['bags', 'backpacks'],
+    'backpack': ['backpacks'],
+    'jewelry': ['jewellery'],
+    'jewellery': ['jewellery'],
+    'necklace': ['jewellery'],
+    'bracelet': ['jewellery'],
+    'earring': ['jewellery'],
+    'earrings': ['jewellery'],
+    'ring': ['jewellery'],
+    'rings': ['jewellery'],
+  };
+  
+  // Smart query parsing: extract product type and modifiers separately
+  let requiredSubcategories: string[] | null = null;
+  let searchModifiers: string[] = [];
+  
   if (options.query) {
     const query = options.query.toLowerCase();
     const queryWords = query.split(/\s+/).filter(w => w.length > 2);
     
-    results = results.filter(p => {
-      const searchText = `${p.name} ${p.description} ${p.brand} ${p.subcategory}`.toLowerCase();
-      return queryWords.some(word => searchText.includes(word));
-    });
+    // Find product type in query (this determines WHAT we're looking for)
+    for (const word of queryWords) {
+      if (PRODUCT_TYPE_MAP[word]) {
+        requiredSubcategories = PRODUCT_TYPE_MAP[word];
+        break;
+      }
+    }
+    
+    // Remaining words are search modifiers (color, brand, style, etc.)
+    searchModifiers = queryWords.filter(w => !PRODUCT_TYPE_MAP[w]);
   }
   
-  // Filter by subcategory
+  // If we detected a product type, REQUIRE matching subcategory
+  if (requiredSubcategories) {
+    results = results.filter(p => requiredSubcategories!.includes(p.subcategory));
+  }
+  
+  // Apply explicit subcategory filter if provided
   if (options.subcategory) {
-    results = results.filter(p => p.subcategory === options.subcategory);
+    const subcatResults = results.filter(p => p.subcategory === options.subcategory);
+    if (subcatResults.length > 0) {
+      results = subcatResults;
+    }
+  }
+  
+  // Filter by search modifiers (color, brand, style words)
+  // PERMISSIVE for coarse retrieval: If modifiers match, use them. Otherwise, keep category results.
+  // The LLM reranker will handle semantic matching for modifiers like "summer", "casual", etc.
+  if (searchModifiers.length > 0) {
+    const modifierMatched = results.filter(p => {
+      // Build comprehensive search text including color variants
+      const colorVariant = p.variants?.find(v => v.type === 'color');
+      const colors = colorVariant?.options?.join(' ') || '';
+      const searchText = `${p.name} ${p.description} ${p.brand} ${colors}`.toLowerCase();
+      return searchModifiers.some(mod => searchText.includes(mod));
+    });
+    // Only apply modifier filter if we found matches
+    // Otherwise keep the category-filtered results for LLM reranking
+    if (modifierMatched.length > 0) {
+      results = modifierMatched;
+    }
+  }
+
+  // If we have a query but no product type was detected AND no results, return empty
+  // This prevents returning the entire catalog for unrecognized queries
+  if (options.query && !requiredSubcategories && results.length === 0) {
+    // Query didn't match any known product type and modifiers found nothing
+    return {
+      products: [],
+      totalMatches: 0,
+      searchTime: Date.now() - startTime,
+      fromCache,
+    };
   }
   
   // Filter by price range

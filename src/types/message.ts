@@ -4,7 +4,7 @@ import { Product, CardLayout } from './product';
 export type IntentType = 'shopping_discovery' | 'support' | 'ambiguous';
 
 // Renderer decision from LLM
-export type RendererType = 'text_only' | 'single_card' | 'carousel' | 'list' | 'grid';
+export type RendererType = 'text_only' | 'single_card' | 'carousel';
 
 // LLM decision output schema
 export interface LLMDecision {

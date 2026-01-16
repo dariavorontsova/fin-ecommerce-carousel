@@ -11,7 +11,7 @@ import { searchProducts } from './productSearch';
 // ============================================================================
 
 export type IntentType = 'shopping_discovery' | 'support' | 'ambiguous';
-export type RendererType = 'text_only' | 'single_card' | 'carousel' | 'list' | 'grid';
+export type RendererType = 'text_only' | 'single_card' | 'carousel';
 
 export interface LLMIntent {
   primary: IntentType;
@@ -24,32 +24,50 @@ export interface LLMDecision {
   renderer: RendererType;
   item_count: number;
   needs_clarification: boolean;
-  clarification_reason: string | null;
 }
 
 export interface LLMProductSearch {
   query: string;
-  category?: string;
   subcategory?: string;
   priceRange?: { min?: number; max?: number };
-  minRating?: number;
-  tags?: string[];
-  attributes?: Record<string, string>;
+}
+
+// Captures what the AI understood about the user's need
+export interface LLMUnderstoodIntent {
+  explicit_need: string;
+  implicit_constraints: string[];
+  inferred_context: string;
+  decision_stage: 'exploring' | 'comparing' | 'ready_to_buy';
+}
+
+// Structured response fields for intelligent responses
+export interface LLMResponseFields {
+  intent_acknowledgment: string;
+  selection_explanation: string;
+  product_highlights: string;
+  follow_up_question: string;
+}
+
+// Contextual follow-up suggestions for quick-reply buttons
+export interface SuggestedFollowUp {
+  label: string;
+  query: string;
 }
 
 export interface LLMReasoning {
   intent_explanation: string;
-  renderer_explanation: string;
-  confidence_factors: string[];
-  product_reasoning?: string[]; // Why each product was selected
+  selection_reasoning: string;
+  product_reasoning?: string[]; // Per-product reasoning from reranker
 }
 
 export interface LLMResponse {
   intent: LLMIntent;
   decision: LLMDecision;
   product_search: LLMProductSearch | null;
+  understood_intent: LLMUnderstoodIntent;
+  response: LLMResponseFields;
+  suggested_follow_ups: SuggestedFollowUp[];
   reasoning: LLMReasoning;
-  response_text: string;
 }
 
 export interface ConversationMessage {
@@ -67,6 +85,8 @@ export interface ConversationContext {
 export interface FinResponse {
   llmResponse: LLMResponse;
   products: Product[];
+  suggestedFollowUps: SuggestedFollowUp[];
+  responseText: string; // Composed from response fields
   latency: {
     total: number;
     llm: number;
@@ -78,123 +98,235 @@ export interface FinResponse {
 // System Prompt
 // ============================================================================
 
-const SYSTEM_PROMPT = `You are Fin, an AI shopping assistant for an e-commerce store. Your job is to:
-1. Understand user intent (shopping discovery vs support)
-2. Decide whether to show product recommendations
-3. Determine the best way to present products (if any)
-4. Generate a helpful response
+const SYSTEM_PROMPT = `You are Fin, an AI assistant that seamlessly handles BOTH shopping assistance AND customer support. You intelligently switch between these roles based on user intent.
+
+## Your Two Roles
+
+### Role 1: Shopping Assistant
+When users want to discover, browse, or buy products, you help them find what they need with intelligent recommendations.
+
+### Role 2: Support Agent
+When users need help with orders, returns, accounts, or policies, you provide helpful, knowledgeable support responses.
 
 ## Intent Classification
 
-Classify the user's intent into one of three categories:
+### shopping_discovery — Show Products
+User wants to browse, discover, compare, or purchase products.
+**REQUIRED**: User must mention a SPECIFIC PRODUCT TYPE (jacket, dress, shoes, tops, jeans, coat, etc.)
+Signals: product type mentioned, purchase intent, feature queries, comparisons
 
-### shopping_discovery
-User is actively looking to browse, discover, or purchase products.
-Signals:
-- Product category mentions ("looking for shoes", "need a lamp")
-- Purchase intent ("want to buy", "shopping for")
-- Feature/specification queries ("waterproof jacket", "under $50")
-- Comparison requests ("best laptop for gaming")
-- Gift shopping ("gift for my mom")
+### support — Provide Support (Text Only)
+User needs help with orders, returns, accounts, shipping, or policies.
+Signals: "return", "order", "refund", "tracking", "delivery", "account", "password", "exchange", "cancel", "shipping"
+**Response**: Actually help them! Provide useful information as if you have access to their account.
 
-### support
-User needs help with an existing order, account, or issue.
-Signals:
-- Order references ("my order", "tracking", "delivery")
-- Account issues ("password", "login", "account")
-- Complaints ("broken", "wrong item", "refund")
-- Policy questions ("return policy", "warranty")
-- Technical issues ("website not working", "payment failed")
+### ambiguous — Clarify First
+Query has no specific product type AND no support signals.
+Examples: "summer", "something nice", "help", "looking for ideas"
+**Response**: Ask what type of product they're interested in, or if they need support help.
 
-### ambiguous
-Intent is unclear and could go either way.
-Signals:
-- Vague queries ("help", "I need something")
-- Mixed signals (shopping + support in same message)
-- Context-dependent queries
+## Decision Rules
 
-## Decision Logic
+### When to show products (shopping_discovery):
+- User mentions a SPECIFIC product type: jacket, dress, shoes, top, jeans, coat, shirt, sweater, boots, etc.
+- "casual jacket for work" → YES (has "jacket")
+- "red dress for party" → YES (has "dress")
+- "running shoes" → YES (has "shoes")
 
-### When to show products:
-- Intent is shopping_discovery with confidence > 0.7
-- User has provided enough context to make relevant recommendations
-- Query is specific enough (not just "show me stuff")
+### When to clarify (ambiguous):
+- NO product type mentioned, just descriptors or occasions
+- "summer" → NO product type, ask: "Are you looking for summer dresses, tops, shorts, or something else?"
+- "something nice for a date" → NO product type, ask: "What kind of piece are you thinking — a dress, a nice top, or something else?"
+- "gift for my mom" → NO product type, ask: "What does she usually wear? I can help with dresses, tops, jackets, or accessories."
 
-### When NOT to show products:
-- Intent is support
-- User is complaining or frustrated
-- Query is too vague (needs clarification first)
-- User explicitly asked a yes/no or informational question
+### When to provide support (support):
+- User mentions order, return, refund, shipping, account, or policy-related words
+- "return" → Provide return policy and process
+- "where is my order" → Offer to help track their order
+- "refund" → Explain refund policy and timeline
 
-### Clarification:
-Only ask for clarification if the query is too vague to provide useful recommendations.
-- "I need shoes" → Too vague, ask about type/use case
-- "Running shoes for women size 8" → Specific enough, show products
+## Output Schema
 
-### Renderer Selection:
-- carousel: Default for 3-5 products, good for browsing
-- single_card: When one product clearly matches
-- list: When comparing features is important
-- grid: For broader category browsing (expanded view only)
-- text_only: Support queries, clarification, or no products
+Always respond with a JSON object in this exact format:
 
-### Item Count:
-- Very specific query → 1-2 items
-- Moderately specific → 3-4 items
-- Broad category → 4-5 items
-
-## Product Search
-
-When recommending products, provide search criteria that can be used to filter the catalog:
-- category: Main category (lighting, furniture, clothing, electronics, food, beauty, sports, kids, pets, kitchen, garden, books)
-- subcategory: More specific type
-- priceRange: {min, max} in USD
-- minRating: Minimum star rating (1-5)
-- tags: Product tags (sale, new, bestseller, eco-friendly, etc.)
-- attributes: Category-specific attributes
-
-## Response Format
-
-Always respond with valid JSON matching this schema:
 {
   "intent": {
     "primary": "shopping_discovery" | "support" | "ambiguous",
     "confidence": 0.0-1.0,
-    "signals": ["signal1", "signal2"]
+    "signals": ["detected signals"]
   },
+
   "decision": {
     "show_products": true | false,
-    "renderer": "text_only" | "single_card" | "carousel" | "list" | "grid",
-    "item_count": 0-5,
-    "needs_clarification": true | false,
-    "clarification_reason": "reason" | null
+    "renderer": "text_only" | "single_card" | "carousel",
+    "item_count": 1-6,
+    "needs_clarification": false
   },
+
   "product_search": {
-    "query": "search terms",
-    "category": "category name",
-    "subcategory": "subcategory",
-    "priceRange": {"min": 0, "max": 100},
-    "minRating": 4.0,
-    "tags": ["tag1"],
-    "attributes": {"key": "value"}
+    "query": "natural language search query",
+    "subcategory": "jackets | dresses | tops | jeans | coats | etc.",
+    "priceRange": {"min": number, "max": number} | null
   } | null,
-  "reasoning": {
-    "intent_explanation": "Why I classified the intent this way",
-    "renderer_explanation": "Why I chose this display format",
-    "confidence_factors": ["factor1", "factor2"],
-    "product_reasoning": ["Why product 1 matches", "Why product 2 matches"]
+
+  "understood_intent": {
+    "explicit_need": "The literal request (e.g., 'casual jacket for work')",
+    "implicit_constraints": ["office-appropriate", "versatile", "professional-casual"],
+    "inferred_context": "professional setting with dress code flexibility",
+    "decision_stage": "exploring | comparing | ready_to_buy"
   },
-  "response_text": "The friendly message to show the user"
+
+  "response": {
+    "intent_acknowledgment": "Shows you understood the underlying need, not just keywords",
+    "selection_explanation": "Why these specific products were chosen",
+    "product_highlights": "Differentiation between products - when you'd pick each",
+    "follow_up_question": "Contextual next step (NOT generic 'anything else?')"
+  },
+
+  "suggested_follow_ups": [
+    {"label": "Short button text", "query": "What user would say if they clicked"}
+  ],
+
+  "reasoning": {
+    "intent_explanation": "Why this classification",
+    "selection_reasoning": "Why these products fit the understood intent"
+  }
 }
 
-## Important Guidelines
+## Response Quality: The Four Components
 
-1. Be concise but helpful - don't over-explain
-2. If showing products, the response_text should introduce them naturally
-3. For support queries, be empathetic and solution-oriented
-4. Never hallucinate product IDs or details - only provide search criteria
-5. Consider the full conversation context, not just the latest message
-6. When AI reasoning mode is on, provide specific reasons why each product matches the user's needs`;
+Every product recommendation MUST include these elements:
+
+### 1. Intent Acknowledgment
+Show you understood the UNDERLYING need, not just keywords.
+- BAD: "Here are some jackets!"
+- GOOD: "For work, you'll want something professional in meetings but relaxed for everyday."
+
+### 2. Selection Explanation
+Explain WHY these specific products were chosen.
+- BAD: "I found these options for you"
+- GOOD: "I selected these for their clean lines and versatile colors that work in professional settings"
+
+### 3. Product Differentiation
+Help users understand WHEN they'd pick each option.
+- BAD: "All great options!"
+- GOOD: "The black one is understated and works anywhere. The orange adds personality — great for creative offices."
+
+### 4. Contextual Follow-up
+Offer a relevant next step that advances the shopping journey.
+- BAD: "Is there anything else I can help you with?"
+- GOOD: "Are you thinking traditional office or somewhere with a more relaxed dress code?"
+
+## Response Template
+
+Use this structure in your response fields:
+
+response.intent_acknowledgment: "For [use case], you'll want [key consideration]."
+response.selection_explanation: "I selected these for [specific reasoning about why these products fit]."
+response.product_highlights: "[Product A] is [differentiation]. [Product B] is [differentiation]."
+response.follow_up_question: "[Contextual question that helps narrow down OR offer to show related items]"
+
+## Anti-Patterns to AVOID
+
+These make you feel like a dumb search wrapper:
+- Generic greetings: "I'd be happy to help!" (adds no value)
+- Narrating actions: "Here are 4 jackets I found" (the cards speak for themselves)
+- No reasoning: Showing products without explaining why
+- Over-enthusiasm: "Great choice! These are amazing!" (feels fake)
+- Generic follow-ups: "Anything else?" or "Let me know if you need help"
+- Treating products as interchangeable: No differentiation
+
+## Examples
+
+### Query: "casual jacket for work"
+
+understood_intent: {
+  explicit_need: "casual jacket for work",
+  implicit_constraints: ["office-appropriate", "versatile", "professional-casual", "clean lines"],
+  inferred_context: "professional setting with some dress code flexibility",
+  decision_stage: "exploring"
+}
+
+response: {
+  intent_acknowledgment: "For work, you'll want something professional enough for meetings but not overdressed for everyday.",
+  selection_explanation: "I selected these for their clean lines and versatile styling that transitions between formal and casual.",
+  product_highlights: "The black Puma jacket is understated and works anywhere. The orange version adds personality — great if your office leans creative.",
+  follow_up_question: "Are you thinking traditional office or somewhere with a more relaxed dress code?"
+}
+
+suggested_follow_ups: [
+  {"label": "More formal options", "query": "Show me more formal work jackets"},
+  {"label": "Budget under $100", "query": "Show me work jackets under $100"},
+  {"label": "What pairs well", "query": "What would go well with these jackets?"}
+]
+
+### Query: "red dress for summer party"
+
+understood_intent: {
+  explicit_need: "red dress for summer party",
+  implicit_constraints: ["fun but not too formal", "summer-appropriate", "party-ready", "statement piece"],
+  inferred_context: "social event, wants to stand out",
+  decision_stage: "exploring"
+}
+
+response: {
+  intent_acknowledgment: "For a summer party, red is a great choice for standing out — you'll want something fun but not too formal.",
+  selection_explanation: "I picked these because they balance the party vibe with summer comfort — breathable fabrics and playful styles.",
+  product_highlights: "The midi length works for both garden parties and evening events. The mini makes a bolder statement if you want to turn heads.",
+  follow_up_question: "Indoor or outdoor event? That might affect the fabric weight."
+}
+
+## Support Knowledge Base (Use for support intent)
+
+When intent is SUPPORT, you have access to this information and should respond helpfully:
+
+### Return Policy
+- Returns accepted within 28 days of delivery
+- Items must be unworn with tags attached
+- Free returns via prepaid label (sent to email)
+- Refunds processed within 5-7 business days after we receive the item
+
+### Order Tracking
+- Orders ship within 1-2 business days
+- Standard delivery: 3-5 business days
+- Express delivery: 1-2 business days
+- Tracking link sent via email when shipped
+- If user asks about a specific order, offer to look it up with their order number
+
+### Exchanges
+- We don't do direct exchanges — return for refund, then place new order
+- This ensures you get the item you want faster
+
+### Account Issues
+- Password reset available via "Forgot Password" on login page
+- Account issues can be escalated to support team
+- Order history visible in account dashboard
+
+### Refunds
+- Original payment method refunded
+- 5-7 business days after item received
+- Sale items are final sale (no refunds)
+
+### Example Support Responses
+
+Query: "return"
+Response: "I can help with your return! Our policy allows returns within 28 days of delivery — items need to be unworn with tags attached. Would you like me to start a return for a specific order? I just need your order number."
+
+Query: "where is my order"
+Response: "I'd be happy to help track your order! Once an order ships, you'll receive a tracking link via email (usually within 1-2 business days of ordering). If you have your order number, I can look up the status for you. Alternatively, you can check your order history in your account dashboard."
+
+Query: "refund"
+Response: "Refunds are processed within 5-7 business days after we receive your returned item. The money goes back to your original payment method. Is there a specific order you're wondering about? I can check on the status if you have the order number."
+
+## Important Notes
+
+1. The response fields are SEPARATE from product_search. Product search is for retrieval, response fields are for the message.
+2. Never hallucinate product IDs — only provide search criteria.
+3. suggested_follow_ups should have 2-3 contextual options, NOT generic ones.
+4. If no products match, be honest: "I couldn't find exact matches for X because..."
+5. Consider conversation context for multi-turn interactions.
+6. For SUPPORT queries: Be genuinely helpful! Don't just acknowledge — provide the information they need.
+7. For AMBIGUOUS queries: Don't guess at product type — ask what category they're interested in.`;
 
 // ============================================================================
 // API Client
@@ -209,12 +341,193 @@ interface OpenAIConfig {
 // Auto-configure from environment variable
 const config: OpenAIConfig = {
   apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
-  model: 'gpt-5',
+  model: 'gpt-4o', // Fast, capable, good for intent detection
   temperature: 0.3,
 };
 
 export function isConfigured(): boolean {
   return config.apiKey.length > 0;
+}
+
+// ============================================================================
+// LLM Product Reranking (Retrieve & Rerank pattern)
+// ============================================================================
+
+const RERANK_PROMPT = `You are a product selection AI. Given a user's shopping query and their understood intent, select the products that BEST match what the user is looking for.
+
+Consider:
+- Semantic fit to the USE CASE (e.g., "work" → professional styling, "summer party" → fun/light fabrics)
+- Exact matches (color, style, type mentioned in query)
+- Price if mentioned
+- Quality signals (ratings, reviews)
+- DIVERSITY: include a range of options (understated to bold, different price points)
+
+IMPORTANT: Only select products that genuinely match the query. If the user asks for "red dress" and no products have "red" in the name/description, return an empty selection rather than showing non-red items.
+
+Return a JSON object with:
+{
+  "selected_ids": ["id1", "id2", ...],  // IDs of products to show (max 6, in order of relevance)
+  "overall_reasoning": "Brief explanation of the selection strategy",
+  "product_insights": [
+    {
+      "id": "product_id",
+      "why_selected": "Why this product fits the user's need",
+      "best_for": "When/who would choose this option",
+      "differentiator": "What makes this one unique vs others"
+    }
+  ]
+}
+
+If NO products match well, return:
+{
+  "selected_ids": [],
+  "overall_reasoning": "None of the candidates match the query well because...",
+  "product_insights": []
+}`;
+
+interface ProductCandidate {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  brand: string;
+  rating?: number;
+}
+
+interface ProductInsight {
+  id: string;
+  why_selected: string;
+  best_for: string;
+  differentiator: string;
+}
+
+interface RerankResult {
+  selected_ids: string[];
+  overall_reasoning: string;
+  product_insights: ProductInsight[];
+}
+
+/**
+ * Use LLM to rerank/select the best products from candidates
+ * This is the key to semantic search - the LLM actually reads and understands product descriptions
+ */
+async function rerankProducts(
+  userQuery: string,
+  understoodIntent: LLMUnderstoodIntent | null,
+  candidates: Product[],
+  maxResults: number = 6
+): Promise<RerankResult> {
+  if (!isConfigured() || candidates.length === 0) {
+    // Fallback: return first N candidates
+    return {
+      selected_ids: candidates.slice(0, maxResults).map(p => p.id),
+      overall_reasoning: 'LLM not configured, returning top candidates by default order',
+      product_insights: []
+    };
+  }
+
+  // Prepare candidate info for the LLM (keep it concise to save tokens)
+  const candidateInfo: ProductCandidate[] = candidates.slice(0, 30).map(p => ({
+    id: p.id,
+    name: p.name,
+    description: p.description || '',
+    price: p.price,
+    brand: p.brand,
+    rating: p.rating,
+  }));
+
+  // Include understood intent to help with semantic matching
+  const intentContext = understoodIntent
+    ? `\nUser's understood intent:
+- Explicit need: ${understoodIntent.explicit_need}
+- Implicit constraints: ${understoodIntent.implicit_constraints.join(', ')}
+- Context: ${understoodIntent.inferred_context}`
+    : '';
+
+  const userPrompt = `User query: "${userQuery}"${intentContext}
+
+Candidate products (select up to ${maxResults} that best match):
+${JSON.stringify(candidateInfo, null, 2)}
+
+Select the products that best match the user's query and intent. Return JSON with selected_ids, overall_reasoning, and product_insights for each selected product.`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini', // Fast and cheap for reranking
+        messages: [
+          { role: 'system', content: RERANK_PROMPT },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.2, // Slightly higher for more diverse insights
+        response_format: { type: 'json_object' },
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Rerank API error:', await response.text());
+      return {
+        selected_ids: candidates.slice(0, maxResults).map(p => p.id),
+        overall_reasoning: 'Rerank API failed, using default order',
+        product_insights: []
+      };
+    }
+
+    const data = await response.json();
+    const result: RerankResult = JSON.parse(data.choices[0].message.content);
+
+    console.log('[Rerank] Selected:', result.selected_ids.length, 'products');
+    console.log('[Rerank] Reasoning:', result.overall_reasoning);
+
+    return result;
+  } catch (error) {
+    console.error('Rerank error:', error);
+    return {
+      selected_ids: candidates.slice(0, maxResults).map(p => p.id),
+      overall_reasoning: 'Rerank failed, using default order',
+      product_insights: []
+    };
+  }
+}
+
+/**
+ * Compose the final response text from structured response fields
+ */
+function composeResponseText(response: LLMResponseFields, hasProducts: boolean): string {
+  if (!hasProducts) {
+    // For non-product responses, just use intent acknowledgment or a simple message
+    return response.intent_acknowledgment || response.follow_up_question || '';
+  }
+
+  // Compose the full response from the four components
+  const parts: string[] = [];
+
+  // 1. Intent acknowledgment + selection explanation
+  if (response.intent_acknowledgment) {
+    parts.push(response.intent_acknowledgment);
+  }
+  if (response.selection_explanation) {
+    parts.push(response.selection_explanation);
+  }
+
+  // 2. Product highlights (differentiation)
+  if (response.product_highlights) {
+    parts.push('');  // Add spacing
+    parts.push(response.product_highlights);
+  }
+
+  // 3. Contextual follow-up
+  if (response.follow_up_question) {
+    parts.push('');  // Add spacing
+    parts.push(response.follow_up_question);
+  }
+
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
 }
 
 export async function queryFin(
@@ -274,23 +587,69 @@ export async function queryFin(
     const llmResponse: LLMResponse = JSON.parse(data.choices[0].message.content);
 
     // Search for products if needed (on-demand from HuggingFace)
+    // Using Retrieve & Rerank pattern:
+    // 1. Coarse retrieval: Get many candidates by category
+    // 2. LLM Reranking: Have LLM select the best matches for the full semantic query
     let products: Product[] = [];
+    let responseText = composeResponseText(llmResponse.response, llmResponse.decision.show_products);
+
     if (llmResponse.decision.show_products && llmResponse.product_search) {
+      // Step 1: Coarse retrieval - get MORE candidates than needed for reranking
       const searchResult = await searchProducts({
         query: llmResponse.product_search.query,
         subcategory: llmResponse.product_search.subcategory,
-        maxResults: llmResponse.decision.item_count,
+        maxResults: 30, // Get many candidates for reranking
         minPrice: llmResponse.product_search.priceRange?.min,
         maxPrice: llmResponse.product_search.priceRange?.max,
       });
 
-      products = searchResult.products;
+      if (searchResult.products.length > 0) {
+        // Step 2: LLM Reranking - have LLM select the best matches
+        const rerankResult = await rerankProducts(
+          userMessage, // Use original user query for semantic matching
+          llmResponse.understood_intent, // Pass understood intent for better matching
+          searchResult.products,
+          llmResponse.decision.item_count
+        );
+
+        // Get the selected products in order
+        const selectedProducts = rerankResult.selected_ids
+          .map(id => searchResult.products.find(p => p.id === id))
+          .filter((p): p is Product => p !== undefined);
+
+        products = selectedProducts;
+
+        // If LLM found no good matches, be honest
+        if (products.length === 0) {
+          responseText = `I found some ${llmResponse.product_search.subcategory || 'products'}, but none that closely match "${userMessage}". ${rerankResult.overall_reasoning}`;
+          llmResponse.decision.show_products = false;
+        } else {
+          // Add rerank reasoning to the response
+          llmResponse.reasoning.product_reasoning = rerankResult.product_insights.map(
+            p => `${p.why_selected} (${p.differentiator})`
+          );
+        }
+      } else {
+        // No candidates found at all
+        const query = llmResponse.product_search.query?.toLowerCase() || '';
+        const shoeWords = ['shoe', 'shoes', 'sneaker', 'trainer', 'running', 'boot', 'heel', 'sandal'];
+        const isShoeQuery = shoeWords.some(w => query.includes(w));
+
+        if (isShoeQuery) {
+          responseText = `I'm sorry, we don't currently have shoes or footwear in our catalog. Our collection focuses on clothing like jackets, dresses, tops, and trousers. Would you like me to help you find something else?`;
+        } else {
+          responseText = `I couldn't find any products matching "${llmResponse.product_search.query}". Try searching for items like jackets, dresses, tops, jeans, or coats.`;
+        }
+        llmResponse.decision.show_products = false;
+      }
     }
     searchEndTime = performance.now();
 
     return {
       llmResponse,
       products,
+      suggestedFollowUps: llmResponse.suggested_follow_ups || [],
+      responseText,
       latency: {
         total: searchEndTime - startTime,
         llm: llmEndTime - startTime,
@@ -324,21 +683,6 @@ export async function queryFinMock(
 
   const lowerMessage = userMessage.toLowerCase();
 
-  // Simple intent detection
-  let intent: LLMIntent;
-  let decision: LLMDecision;
-  let productSearch: LLMProductSearch | null = null;
-  let responseText: string;
-  let reasoning: LLMReasoning;
-
-  // Support detection
-  const supportSignals = ['order', 'return', 'refund', 'help', 'broken', 'wrong', 'tracking', 'delivery', 'account', 'password'];
-  const isSupport = supportSignals.some((s) => lowerMessage.includes(s));
-
-  // Shopping detection
-  const shoppingSignals = ['looking for', 'need', 'want', 'buy', 'show me', 'recommend', 'best', 'find'];
-  const isShopping = shoppingSignals.some((s) => lowerMessage.includes(s));
-
   // Subcategory detection (ASOS clothing data)
   const categoryMap: Record<string, string> = {
     jacket: 'jackets',
@@ -361,23 +705,6 @@ export async function queryFinMock(
     trouser: 'trousers',
     pant: 'trousers',
     short: 'shorts',
-    trainer: 'trainers',
-    sneaker: 'trainers',
-    boot: 'boots',
-    heel: 'heels',
-    sandal: 'sandals',
-    loafer: 'loafers',
-    flat: 'flats',
-    bag: 'bags',
-    backpack: 'backpacks',
-    scarf: 'scarves',
-    hat: 'hats',
-    cap: 'hats',
-    belt: 'belts',
-    sunglasses: 'sunglasses',
-    necklace: 'jewellery',
-    bracelet: 'jewellery',
-    earring: 'jewellery',
   };
 
   let detectedCategory: string | undefined;
@@ -388,107 +715,155 @@ export async function queryFinMock(
     }
   }
 
-  if (isSupport && !isShopping) {
-    // Support intent
-    intent = {
-      primary: 'support',
-      confidence: 0.85,
-      signals: supportSignals.filter((s) => lowerMessage.includes(s)),
-    };
-    decision = {
-      show_products: false,
-      renderer: 'text_only',
-      item_count: 0,
-      needs_clarification: false,
-      clarification_reason: null,
-    };
-    responseText = "I'd be happy to help with that! Could you please provide your order number so I can look into this for you?";
-    reasoning = {
-      intent_explanation: 'User mentioned support-related keywords indicating they need help with an existing issue.',
-      renderer_explanation: 'No products shown for support queries - focusing on resolving their issue first.',
-      confidence_factors: ['Contains support keywords', 'No shopping intent signals'],
-    };
-  } else if (isShopping || detectedCategory) {
-    // Shopping intent
-    const isSpecific = detectedCategory !== undefined;
-    const itemCount = isSpecific ? 4 : 3;
+  // Support detection
+  const supportSignals = ['order', 'return', 'refund', 'broken', 'wrong', 'tracking', 'delivery', 'account', 'password'];
+  const isSupport = supportSignals.some((s) => lowerMessage.includes(s));
 
-    intent = {
-      primary: 'shopping_discovery',
-      confidence: isSpecific ? 0.9 : 0.75,
-      signals: [...shoppingSignals.filter((s) => lowerMessage.includes(s)), detectedCategory ? `Category: ${detectedCategory}` : 'General shopping'].filter(Boolean),
-    };
-    decision = {
-      show_products: true,
-      renderer: 'carousel',
-      item_count: itemCount,
-      needs_clarification: !isSpecific,
-      clarification_reason: !isSpecific ? 'Query could be more specific for better recommendations' : null,
-    };
-    productSearch = {
-      query: userMessage,
-      category: detectedCategory,
-    };
-    responseText = detectedCategory
-      ? `Great choice! Here are some ${detectedCategory} options I think you'll love:`
-      : "Here are some popular items you might be interested in:";
-    reasoning = {
-      intent_explanation: `User is looking to discover/purchase products${detectedCategory ? ` in the ${detectedCategory} category` : ''}.`,
-      renderer_explanation: 'Carousel layout chosen to allow easy browsing of multiple options.',
-      confidence_factors: isSpecific
-        ? ['Clear product category mentioned', 'Shopping intent language detected']
-        : ['Shopping intent language detected', 'No specific category - showing popular items'],
-      product_reasoning: [
-        'Matches the category and has high ratings',
-        'Popular choice with great reviews',
-        'Good value for the features offered',
-        'Trending item in this category',
+  // Default LLM response structure
+  let llmResponse: LLMResponse;
+  let responseText: string;
+
+  if (isSupport) {
+    // Support intent
+    llmResponse = {
+      intent: {
+        primary: 'support',
+        confidence: 0.85,
+        signals: supportSignals.filter((s) => lowerMessage.includes(s)),
+      },
+      decision: {
+        show_products: false,
+        renderer: 'text_only',
+        item_count: 0,
+        needs_clarification: false,
+      },
+      product_search: null,
+      understood_intent: {
+        explicit_need: userMessage,
+        implicit_constraints: ['needs assistance', 'existing order or account'],
+        inferred_context: 'customer support inquiry',
+        decision_stage: 'exploring',
+      },
+      response: {
+        intent_acknowledgment: "I understand you need help with your order.",
+        selection_explanation: '',
+        product_highlights: '',
+        follow_up_question: "Could you please provide your order number so I can look into this for you?",
+      },
+      suggested_follow_ups: [
+        { label: 'Track my order', query: 'Where is my order?' },
+        { label: 'Return an item', query: 'How do I return something?' },
       ],
+      reasoning: {
+        intent_explanation: 'User mentioned support-related keywords',
+        selection_reasoning: 'No products shown for support queries',
+      },
     };
+    responseText = "I understand you need help with your order. Could you please provide your order number so I can look into this for you?";
+  } else if (detectedCategory) {
+    // Shopping intent with detected category
+    llmResponse = {
+      intent: {
+        primary: 'shopping_discovery',
+        confidence: 0.9,
+        signals: [`Category: ${detectedCategory}`, 'product type detected'],
+      },
+      decision: {
+        show_products: true,
+        renderer: 'carousel',
+        item_count: 4,
+        needs_clarification: false,
+      },
+      product_search: {
+        query: userMessage,
+        subcategory: detectedCategory,
+      },
+      understood_intent: {
+        explicit_need: userMessage,
+        implicit_constraints: ['looking for options', 'wants to see variety'],
+        inferred_context: `browsing ${detectedCategory}`,
+        decision_stage: 'exploring',
+      },
+      response: {
+        intent_acknowledgment: `I see you're looking for ${detectedCategory}.`,
+        selection_explanation: `I've selected a range of popular ${detectedCategory} with good reviews and variety in style.`,
+        product_highlights: 'These offer different styles from casual to more polished looks.',
+        follow_up_question: 'Any particular style or price range in mind?',
+      },
+      suggested_follow_ups: [
+        { label: 'Under $50', query: `Show me ${detectedCategory} under $50` },
+        { label: 'Most popular', query: `What are the most popular ${detectedCategory}?` },
+      ],
+      reasoning: {
+        intent_explanation: `User mentioned ${detectedCategory}`,
+        selection_reasoning: 'Showing variety of options in the category',
+      },
+    };
+    responseText = `I see you're looking for ${detectedCategory}. I've selected a range of popular options with good reviews and variety in style. These offer different looks from casual to more polished. Any particular style or price range in mind?`;
   } else {
     // Ambiguous intent
-    intent = {
-      primary: 'ambiguous',
-      confidence: 0.5,
-      signals: ['No clear shopping or support signals'],
+    llmResponse = {
+      intent: {
+        primary: 'ambiguous',
+        confidence: 0.5,
+        signals: ['No clear product type mentioned'],
+      },
+      decision: {
+        show_products: false,
+        renderer: 'text_only',
+        item_count: 0,
+        needs_clarification: true,
+      },
+      product_search: null,
+      understood_intent: {
+        explicit_need: userMessage,
+        implicit_constraints: [],
+        inferred_context: 'unclear what user is looking for',
+        decision_stage: 'exploring',
+      },
+      response: {
+        intent_acknowledgment: "I'd love to help you find something!",
+        selection_explanation: '',
+        product_highlights: '',
+        follow_up_question: 'Are you looking for a specific type of clothing, like jackets, dresses, or tops?',
+      },
+      suggested_follow_ups: [
+        { label: 'Browse jackets', query: 'Show me jackets' },
+        { label: 'Browse dresses', query: 'Show me dresses' },
+        { label: 'Browse tops', query: 'Show me tops' },
+      ],
+      reasoning: {
+        intent_explanation: 'Query too vague to determine product type',
+        selection_reasoning: 'Asking for clarification to provide relevant results',
+      },
     };
-    decision = {
-      show_products: false,
-      renderer: 'text_only',
-      item_count: 0,
-      needs_clarification: true,
-      clarification_reason: 'Need more context to provide relevant help',
-    };
-    responseText = "I'm here to help! Are you looking to discover new products, or do you need assistance with an existing order?";
-    reasoning = {
-      intent_explanation: 'Query is too vague to determine if user wants to shop or needs support.',
-      renderer_explanation: 'Asking for clarification before showing products to ensure relevance.',
-      confidence_factors: ['No clear intent signals', 'Short or vague query'],
-    };
+    responseText = "I'd love to help you find something! Are you looking for a specific type of clothing, like jackets, dresses, or tops?";
   }
 
-  // Search for products if needed (on-demand from HuggingFace)
+  // Search for products if needed
   let products: Product[] = [];
-  if (decision.show_products && productSearch) {
+  if (llmResponse.decision.show_products && llmResponse.product_search) {
     const searchResult = await searchProducts({
-      query: productSearch.query,
-      subcategory: productSearch.category, // Maps to subcategory in ASOS data
-      maxResults: decision.item_count,
+      query: llmResponse.product_search.query,
+      subcategory: llmResponse.product_search.subcategory,
+      maxResults: llmResponse.decision.item_count,
     });
     products = searchResult.products;
+
+    // If no products found, update response
+    if (products.length === 0) {
+      responseText = `I couldn't find any products matching "${llmResponse.product_search.query}". Try searching for items like jackets, dresses, tops, jeans, or coats.`;
+      llmResponse.decision.show_products = false;
+    }
   }
 
   const searchEndTime = performance.now();
 
   return {
-    llmResponse: {
-      intent,
-      decision,
-      product_search: productSearch,
-      reasoning,
-      response_text: responseText,
-    },
+    llmResponse,
     products,
+    suggestedFollowUps: llmResponse.suggested_follow_ups,
+    responseText,
     latency: {
       total: searchEndTime - startTime,
       llm: llmEndTime - startTime,
