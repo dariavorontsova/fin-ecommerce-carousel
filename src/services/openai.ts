@@ -551,14 +551,6 @@ export function isConfigured(): boolean {
   return configured;
 }
 
-function isAnthropicConfigured(): boolean {
-  const configured = anthropicConfig.apiKey.length > 0;
-  if (!configured) {
-    console.log('[Config] Anthropic NOT configured, will use OpenAI fallback');
-  }
-  return configured;
-}
-
 // ============================================================================
 // LLM Product Reranking (Retrieve & Rerank pattern)
 // ============================================================================
