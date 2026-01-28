@@ -1,4 +1,5 @@
-import { useRef, useState, useEffect, ReactNode } from 'react';
+import { useRef, useState, useEffect, ReactNode, Children } from 'react';
+import { motion } from 'framer-motion';
 
 interface CarouselLayoutProps {
   children: ReactNode;
@@ -76,7 +77,20 @@ export function CarouselLayout({
           marginBottom: '-32px',
         }}
       >
-        {children}
+        {Children.map(children, (child, index) => (
+          <motion.div
+            key={index}
+            initial={{ opacity: 0, y: 12, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{
+              duration: 0.35,
+              delay: index * 0.08, // Stagger each card by 80ms
+              ease: [0.25, 0.1, 0.25, 1], // Smooth easing
+            }}
+          >
+            {child}
+          </motion.div>
+        ))}
       </div>
 
       {/* Right navigation arrow - no border, just shadow */}

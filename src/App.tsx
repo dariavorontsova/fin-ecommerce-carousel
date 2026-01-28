@@ -95,9 +95,12 @@ function App() {
   const [cardLayout, setCardLayout] = useState<CardLayout>('carousel');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [aiReasoningMode, setAiReasoningMode] = useState(false);
+  const [aiReasoningMode, setAiReasoningMode] = useState(false); // Default OFF
   const [cardConfig, setCardConfig] = useState<CardConfig>({
     ...DEFAULT_CARD_CONFIG,
+    showPrice: true,
+    showRating: true,
+    showDescription: true,
     showViewDetailsLarge: false,
   });
   const [allProducts, setAllProducts] = useState<Product[]>([]);

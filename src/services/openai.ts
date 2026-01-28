@@ -80,10 +80,12 @@ export interface LLMUnderstoodIntent {
 
 // Structured response fields for intelligent responses
 export interface LLMResponseFields {
-  intent_acknowledgment: string;
-  selection_explanation: string;
-  product_highlights: string;
+  reasoning: string; // Main response text with paragraphs (separated by \n\n)
   follow_up_question: string;
+  // Legacy fields for backward compatibility
+  intent_acknowledgment?: string;
+  selection_explanation?: string;
+  product_highlights?: string;
 }
 
 // Contextual follow-up suggestions for quick-reply buttons
@@ -341,7 +343,7 @@ Always respond with a JSON object in this exact format:
   "decision": {
     "show_products": true | false,
     "renderer": "text_only" | "single_card" | "carousel",
-    "item_count": 4-6,  // DEFAULT to 4-6 for discovery. Only use 1-2 if user explicitly asks for "the best" or "top pick"
+    "item_count": 8-10,  // DEFAULT 8-10 for variety. Use 1-2 for: "the best", "top pick", specific product by name, or brand+product combo
     "needs_clarification": false
   },
 
@@ -521,11 +523,19 @@ interface AnthropicConfig {
   model: string;
 }
 
-// Auto-configure from environment variables - USE THE BEST MODELS
+// Auto-configure from environment variables
+// Stage 1 (Classification): Use gpt-4o - fast and capable for intent classification
+// Stage 2b (Reasoning): Use gpt-5.1 - best quality for user-facing reasoning
 const config: OpenAIConfig = {
   apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
-  model: 'gpt-5.1', // Latest OpenAI flagship - best reasoning
+  model: 'gpt-4o', // Stage 1: Fast model for classification + intent extraction
   temperature: 0.3,
+};
+
+const stage2Config: OpenAIConfig = {
+  apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
+  model: 'gpt-4o', // Stage 2b: Testing faster model for reasoning (was gpt-5.1)
+  temperature: 0.4,
 };
 
 const anthropicConfig: AnthropicConfig = {
@@ -559,7 +569,7 @@ const RERANK_AND_RESPOND_PROMPT = `You are a product selection AI for a fashion 
 
 ## Your Task
 
-Select the best products (max 6) and write a BRIEF response.
+Select the best products (max 10) and write a thoughtful response that demonstrates understanding.
 
 ## Selection Rules
 
@@ -570,14 +580,60 @@ Select the best products (max 6) and write a BRIEF response.
 
 ## Item Count
 
-- **Default: 5-6 items** for browsing/discovery queries (give variety)
-- 4 items minimum for any shopping query
-- 1-2 items ONLY if user explicitly asked for "the best one", "your top pick", or similar singular request
-- When in doubt, show MORE options (5-6), not fewer
+- **Default: 8-10 items** for browsing/discovery queries (show depth and variety)
+- 6 items minimum for general shopping queries
 
-## CRITICAL: Response Must Be BRIEF
+**Show only 1-2 items when:**
+- User asks for "the best", "top pick", "your recommendation" (singular)
+- User asks for a SPECIFIC product by name ("do you have the X?", "show me the ASOS leather jacket")
+- User names a specific brand + product type combo ("North Face ski jacket")
 
-Your response should be 2-3 short sentences MAX. The cards do the heavy lifting.
+When showing 1-2 items, your response should be confident: "Yes, here it is" or "This is my top pick because..."
+
+## Response Writing — BE CONCISE
+
+**NEVER repeat what the user just said.** They know what they asked.
+
+**Keep it SHORT.** 2-3 sentences total. The cards do the heavy lifting.
+
+**Structure:**
+1. One sentence on the key needs (warmth, waterproof, etc.) — NOT a lecture
+2. One sentence calling out 1-2 standouts BY NAME with a quick "why"
+3. End with a short follow-up question
+
+**Good example:**
+"For skiing you'll want waterproof and insulated — the Volcom has a snow skirt to keep powder out, and the Columbia is warmest of the bunch. What temps are you expecting?"
+
+**Bad example (too long):**
+"For a first-time ski trip, it's crucial to focus on warmth, waterproofing, and comfort. You'll need a jacket that can handle snow and cold temperatures, while also being easy to move in. As a beginner, having practical features like snow skirts and functional pockets will enhance your experience. The selected items offer a range of options..."
+
+**For specific queries** (like "show me black jackets"):
+- Even shorter — 1-2 sentences max
+- They know what they want, just highlight differences
+
+**For single-item requests** ("do you have X?" or "what's your best Y?"):
+- Be confident and direct: "Yes, here it is" or "This is my top pick"
+- One sentence on why it's a good choice
+- **CRITICAL: Drive toward PURCHASE, not more discovery**
+- Example: "Yes! The ASOS leather biker is a classic — great reviews and versatile. Want me to check your size?"
+
+**DO NOT** suggest "see similar styles" or "matching items" for single-item results — that derails the purchase decision.
+
+## Follow-up Questions — Match the Intent
+
+**For broad/discovery queries:** Help narrow down:
+- "What temperatures are you expecting?" 
+- "Want me to focus on jackets, pants, or base layers?"
+- "Any budget in mind?"
+
+**For single-item / perfect match (1-2 items):** Drive toward PURCHASE:
+- "Want me to add it to your cart?"
+- "Should I check if your size is in stock?"
+- "Ready to grab it?"
+
+**NEVER** suggest more discovery ("see similar", "matching items") when showing a single perfect match — that derails purchase.
+
+**NEVER** ask random category questions that don't flow from the conversation.
 
 ## card_reason — Help Them DECIDE (Varied Framing)
 
@@ -614,10 +670,8 @@ Return JSON:
 {
   "selected_ids": ["id1", "id2", ...],
   "response": {
-    "intent_acknowledgment": "One sentence about what they need (max 15 words)",
-    "selection_explanation": "",
-    "product_highlights": "One sentence highlighting 1-2 standouts BY NAME (max 20 words)",
-    "follow_up_question": "Short contextual question (max 10 words)"
+    "reasoning": "2-3 SHORT sentences total. Key needs + 1-2 standouts by name. No fluff, no lectures. Example: 'For skiing you want waterproof and warm — the Volcom has a snow skirt, the Columbia is the warmest here.'",
+    "follow_up_question": "Short helpful question (under 10 words)"
   },
   "product_insights": [
     {
@@ -656,9 +710,7 @@ interface ProductInsight {
 interface RerankAndRespondResult {
   selected_ids: string[];
   response: {
-    intent_acknowledgment: string;
-    selection_explanation: string;
-    product_highlights: string;
+    reasoning: string; // Main response with paragraphs
     follow_up_question: string;
   };
   product_insights: ProductInsight[];
@@ -679,7 +731,7 @@ async function rerankAndRespond(
   userQuery: string,
   understoodIntent: LLMUnderstoodIntent | null,
   candidates: Product[],
-  maxResults: number = 6,
+  maxResults: number = 10,
   viewingProduct?: Product // The product user is viewing (for PDP context)
 ): Promise<RerankAndRespondResult> {
   // Fallback for no candidates or no API key
@@ -687,9 +739,7 @@ async function rerankAndRespond(
     return {
       selected_ids: candidates.slice(0, maxResults).map(p => p.id),
       response: {
-        intent_acknowledgment: '',
-        selection_explanation: '',
-        product_highlights: '',
+        reasoning: '',
         follow_up_question: '',
       },
       product_insights: [],
@@ -735,30 +785,31 @@ The user wants items that match/complement THIS product. Each card_reason should
 Product candidates to choose from:
 ${JSON.stringify(candidateInfo, null, 2)}
 
-IMPORTANT: Select ${Math.min(maxResults, 5)}-${maxResults} products (aim for variety). Use the EXACT id values from the candidates above.
+IMPORTANT: Select ${Math.min(maxResults, 8)}-${maxResults} products (aim for depth and variety). Use the EXACT id values from the candidates above.
 Return JSON with selected_ids (array of product IDs), response, product_insights, and suggested_follow_ups.`;
 
   try {
+    const rerankApiStart = performance.now();
     console.log('[RerankAndRespond] Processing', candidateInfo.length, 'candidates for:', userQuery);
     
     let rawContent: string;
     
-    // Use OpenAI gpt-5.1 (Claude requires backend due to CORS)
-    console.log('[RerankAndRespond] Using OpenAI:', config.model);
+    // Use gpt-5.1 for Stage 2b (best quality for user-facing reasoning)
+    console.log('[RerankAndRespond] Using OpenAI:', stage2Config.model);
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.apiKey}`,
+        Authorization: `Bearer ${stage2Config.apiKey}`,
       },
       body: JSON.stringify({
-        model: config.model, // gpt-5.1
+        model: stage2Config.model, // gpt-5.1 for quality reasoning
         messages: [
           { role: 'system', content: RERANK_AND_RESPOND_PROMPT },
           { role: 'user', content: userPrompt },
         ],
-        temperature: 0.4, // Slightly higher for creative card_reasons
+        temperature: stage2Config.temperature, // Slightly higher for creative card_reasons
         response_format: { type: 'json_object' },
       }),
     });
@@ -770,6 +821,9 @@ Return JSON with selected_ids (array of product IDs), response, product_insights
     }
 
     const data = await response.json();
+    const rerankApiEnd = performance.now();
+    console.log(`[RerankAndRespond] API call took ${(rerankApiEnd - rerankApiStart).toFixed(0)}ms`);
+    
     rawContent = data.choices[0].message.content;
     
     console.log('[RerankAndRespond] Raw LLM response:', rawContent.substring(0, 500));
@@ -810,9 +864,7 @@ Return JSON with selected_ids (array of product IDs), response, product_insights
     return {
       selected_ids: candidates.slice(0, maxResults).map(p => p.id),
       response: {
-        intent_acknowledgment: 'Here are some options I found.',
-        selection_explanation: '',
-        product_highlights: '',
+        reasoning: 'Here are some options I found that might work for you.',
         follow_up_question: '',
       },
       product_insights: [],
@@ -823,26 +875,30 @@ Return JSON with selected_ids (array of product IDs), response, product_insights
 
 /**
  * Compose the final response text from structured response fields
- * Keep it brief - just combine non-empty parts with spaces
+ * Now uses the reasoning field which contains properly formatted paragraphs
  */
 function composeResponseText(response: LLMResponseFields, hasProducts: boolean): string {
+  // New format: use reasoning field directly (already has paragraphs)
+  if (response.reasoning) {
+    const parts: string[] = [response.reasoning];
+    if (response.follow_up_question) {
+      parts.push(response.follow_up_question);
+    }
+    return parts.filter(p => p.trim()).join('\n\n').trim();
+  }
+
+  // Legacy fallback for old response format
   if (!hasProducts) {
-    // For non-product responses, just use intent acknowledgment or a simple message
     return response.intent_acknowledgment || response.follow_up_question || '';
   }
 
-  // Compose brief response - skip selection_explanation (redundant)
   const parts: string[] = [];
-
   if (response.intent_acknowledgment) {
     parts.push(response.intent_acknowledgment);
   }
-  // Skip selection_explanation - let the cards speak for themselves
-
   if (response.product_highlights) {
     parts.push(response.product_highlights);
   }
-
   if (response.follow_up_question) {
     parts.push(response.follow_up_question);
   }
@@ -910,6 +966,11 @@ export async function queryFin(
   ];
 
   try {
+    // === TIMING: Stage 1 - Intent Classification ===
+    const stage1Start = performance.now();
+    console.log('[Timing] Stage 1 START - Intent Classification');
+    console.log('[Stage 1] Using model:', config.model);
+    
     // Call OpenAI API
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -932,6 +993,7 @@ export async function queryFin(
 
     const data = await response.json();
     llmEndTime = performance.now();
+    console.log(`[Timing] Stage 1 COMPLETE - ${(llmEndTime - stage1Start).toFixed(0)}ms`);
 
     // Parse LLM response (Stage 1: classification + understood_intent)
     const llmResponse: LLMResponse = JSON.parse(data.choices[0].message.content);
@@ -948,6 +1010,10 @@ export async function queryFin(
 
     // For product responses, use Stage 2b (rerank + respond)
     if (llmResponse.decision.show_products && llmResponse.product_search) {
+      // === TIMING: Product Search ===
+      const searchStart = performance.now();
+      console.log('[Timing] Product Search START');
+      
       // Step 1: Coarse retrieval - get candidates by category
       // Exclude products already shown this session (for "show more" / "different options")
       const excludeIds = context.sessionState?.productsShownThisSession || [];
@@ -959,8 +1025,15 @@ export async function queryFin(
         maxPrice: llmResponse.product_search.priceRange?.max,
         excludeIds,
       });
+      
+      const searchEnd = performance.now();
+      console.log(`[Timing] Product Search COMPLETE - ${(searchEnd - searchStart).toFixed(0)}ms (found ${searchResult.products.length} candidates)`);
 
       if (searchResult.products.length > 0) {
+        // === TIMING: Stage 2b - Rerank + Respond ===
+        const stage2Start = performance.now();
+        console.log('[Timing] Stage 2b START - Rerank + Respond');
+        
         // Step 2: Combined rerank + response generation (THE KEY FIX)
         // Response is generated AFTER seeing actual products
         // Pass viewing product for contextual card_reasons
@@ -971,6 +1044,9 @@ export async function queryFin(
           llmResponse.decision.item_count,
           context.viewingProduct // Pass PDP context for better card_reasons
         );
+        
+        const stage2End = performance.now();
+        console.log(`[Timing] Stage 2b COMPLETE - ${(stage2End - stage2Start).toFixed(0)}ms`);
 
         // Get the selected products in order and attach AI reasoning
         const insightsMap = new Map(
@@ -1011,10 +1087,7 @@ export async function queryFin(
           );
         } else {
           // Reranker found no good matches
-          responseText = rerankResult.response.intent_acknowledgment + ' ' + 
-                        rerankResult.response.selection_explanation + ' ' +
-                        rerankResult.response.follow_up_question;
-          responseText = responseText.replace(/\s+/g, ' ').trim();
+          responseText = composeResponseText(rerankResult.response, false);
           llmResponse.decision.show_products = false;
         }
       } else {
@@ -1056,6 +1129,12 @@ export async function queryFin(
       shoppingContext: null,
     };
 
+    // === TIMING SUMMARY ===
+    const totalTime = searchEndTime - startTime;
+    console.log(`[Timing] ========== TOTAL: ${totalTime.toFixed(0)}ms ==========`);
+    console.log(`[Timing] Stage 1 (Classification): ${(llmEndTime - startTime).toFixed(0)}ms`);
+    console.log(`[Timing] Stage 2 (Search + Rerank): ${(searchEndTime - llmEndTime).toFixed(0)}ms`);
+    
     return {
       llmResponse,
       products,
@@ -1162,9 +1241,7 @@ export async function queryFinMock(
         decision_stage: 'exploring',
       },
       response: {
-        intent_acknowledgment: "I understand you need help with your order.",
-        selection_explanation: '',
-        product_highlights: '',
+        reasoning: "I understand you need help with your order.",
         follow_up_question: "Could you please provide your order number so I can look into this for you?",
       },
       suggested_follow_ups: [
@@ -1193,7 +1270,7 @@ export async function queryFinMock(
       decision: {
         show_products: true,
         renderer: 'carousel',
-        item_count: 4,
+        item_count: 8,
         needs_clarification: false,
       },
       product_search: {
@@ -1207,10 +1284,8 @@ export async function queryFinMock(
         decision_stage: 'exploring',
       },
       response: {
-        intent_acknowledgment: `I see you're looking for ${detectedCategory}.`,
-        selection_explanation: `I've selected a range of popular ${detectedCategory} with good reviews and variety in style.`,
-        product_highlights: 'These offer different styles from casual to more polished looks.',
-        follow_up_question: 'Any particular style or price range in mind?',
+        reasoning: `I've pulled together a variety of ${detectedCategory} with good reviews and different styles.\n\nYou'll see options ranging from casual everyday pieces to more polished looks.`,
+        follow_up_question: 'Any particular style or price range you have in mind?',
       },
       suggested_follow_ups: [
         { label: 'Under $50', query: `Show me ${detectedCategory} under $50` },
@@ -1253,9 +1328,7 @@ export async function queryFinMock(
         decision_stage: 'exploring',
       },
       response: {
-        intent_acknowledgment: "I'd love to help you find something!",
-        selection_explanation: '',
-        product_highlights: '',
+        reasoning: "I'd love to help you find something!",
         follow_up_question: 'Are you looking for a specific type of clothing, like jackets, dresses, or tops?',
       },
       suggested_follow_ups: [

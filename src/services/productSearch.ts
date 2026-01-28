@@ -4,6 +4,18 @@
  */
 
 import { Product, ProductCategory } from '../types/product';
+import { products as localProducts } from '../data/products';
+
+// Create a lookup map for local products with images (by name for matching)
+const localProductsWithImages = new Map<string, string[]>();
+localProducts.forEach(p => {
+  if (p.images && p.images.length > 1) {
+    // Use lowercase name for matching
+    localProductsWithImages.set(p.name.toLowerCase(), p.images);
+    console.log('[ProductSearch] Registered product with images:', p.name);
+  }
+});
+console.log('[ProductSearch] Total products with images:', localProductsWithImages.size);
 
 const CSV_URL = 'https://huggingface.co/datasets/TrainingDataPro/asos-e-commerce-dataset/resolve/main/products_asos.csv';
 
@@ -509,6 +521,29 @@ export async function searchProducts(options: SearchOptions = {}): Promise<Searc
   if (options.maxResults) {
     results = results.slice(0, options.maxResults);
   }
+  
+  // Enrich products with images from local data if available
+  results = results.map(p => {
+    const nameLower = p.name.toLowerCase();
+    let images = localProductsWithImages.get(nameLower);
+    
+    // If exact match fails, try partial match (for slight name variations)
+    if (!images) {
+      for (const [localName, localImages] of localProductsWithImages.entries()) {
+        if (nameLower.includes(localName) || localName.includes(nameLower)) {
+          images = localImages;
+          console.log('[ProductSearch] Partial match found:', p.name, '->', localName);
+          break;
+        }
+      }
+    }
+    
+    if (images) {
+      console.log('[ProductSearch] Enriching product with images:', p.name, images.length, 'images');
+      return { ...p, images };
+    }
+    return p;
+  });
   
   const searchTime = Date.now() - startTime;
   

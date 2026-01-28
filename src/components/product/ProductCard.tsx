@@ -1,9 +1,10 @@
 import { Product, CardConfig, DEFAULT_CARD_CONFIG } from '../../types/product';
+import { ImageGallery } from './ImageGallery';
 
 interface ProductCardProps {
   product: Product;
   config?: Partial<CardConfig>;
-  variant?: 'default' | 'compact' | 'list';
+  variant?: 'default' | 'compact' | 'list' | 'single';
   aiReasoningMode?: boolean;
   onClick?: (product: Product) => void;
 }
@@ -53,9 +54,18 @@ export function ProductCard({
   // AI Reasoning Mode - Figma spec
   if (aiReasoningMode) {
     const isCompactMode = variant === 'compact';
+    const isSingleMode = variant === 'single';
+    
+    // Debug logging
+    console.log('[ProductCard] Rendering:', product.name, { variant, isSingleMode, hasImages: !!product.images, imageCount: product.images?.length });
+    
+    // Single mode: 256px width (20% smaller than 320), same 1:1 aspect ratio as carousel
+    const cardWidth = isSingleMode ? 'w-[256px] max-w-[256px]' : isCompactMode ? 'w-[200px] min-w-[200px]' : 'w-full';
+    const imageAspect = '1 / 1'; // Same aspect ratio for all cards
+    
     return (
       <div 
-        className={`bg-white overflow-clip cursor-pointer flex-shrink-0 transition-shadow ${isCompactMode ? 'w-[200px] min-w-[200px]' : 'w-full'}`}
+        className={`bg-white overflow-clip cursor-pointer flex-shrink-0 transition-shadow ${cardWidth}`}
         style={{
           border: '1px solid rgba(9, 14, 21, 0.1)',
           borderRadius: '20px',
@@ -64,15 +74,23 @@ export function ProductCard({
         onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
         onClick={handleClick}
       >
-        {/* Image - 1:1 square aspect ratio (Shopify standard) */}
-        <div className="relative w-full overflow-hidden" style={{ aspectRatio: '1 / 1' }}>
-          <img 
-            src={product.image} 
+        {/* Image - gallery for single with multiple images, otherwise single image */}
+        {isSingleMode && product.images && product.images.length > 1 ? (
+          <ImageGallery 
+            images={product.images} 
             alt={product.name}
-            className="w-full h-full object-cover"
-            style={{ objectPosition: 'top center' }}
+            aspectRatio={imageAspect}
           />
-        </div>
+        ) : (
+          <div className="relative w-full overflow-hidden" style={{ aspectRatio: imageAspect }}>
+            <img 
+              src={product.image} 
+              alt={product.name}
+              className="w-full h-full object-cover"
+              style={{ objectPosition: 'top center' }}
+            />
+          </div>
+        )}
 
         {/* Content - Figma: px-16, pt-14, pb-16, gap-12 */}
         <div className="flex flex-col justify-between" style={{ padding: '14px 16px 16px 16px' }}>
@@ -193,12 +211,18 @@ export function ProductCard({
     );
   }
 
-  // Default and compact card layout - Figma specs
+  // Default, compact, and single card layout - Figma specs
   const isCompact = variant === 'compact';
+  const isSingle = variant === 'single';
+  
+  // Determine width class - single cards are 256px (20% smaller than 320)
+  const widthClass = isSingle ? 'w-[256px] max-w-[256px]' : isCompact ? 'flex-shrink-0 w-[200px] min-w-[200px]' : 'w-full';
+  // Same 1:1 aspect ratio for all cards
+  const imageAspectRatio = '1 / 1';
   
   return (
     <div 
-      className={`bg-white overflow-clip cursor-pointer transition-shadow ${isCompact ? 'flex-shrink-0 w-[200px] min-w-[200px]' : 'w-full'}`}
+      className={`bg-white overflow-clip cursor-pointer transition-shadow ${widthClass}`}
       style={{
         border: '1px solid rgba(9, 14, 21, 0.1)',
         borderRadius: '20px',
@@ -207,19 +231,48 @@ export function ProductCard({
       onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
       onClick={handleClick}
     >
-      {/* Image Container - 1:1 square aspect ratio (Shopify standard) */}
-      <div className="relative w-full" style={{ aspectRatio: '1 / 1' }}>
-        {config.showImage && (
-          <img 
-            src={product.image} 
+      {/* Image Container - gallery for single with multiple images, otherwise single image */}
+      {isSingle && product.images && product.images.length > 1 ? (
+        <div className="relative">
+          <ImageGallery 
+            images={product.images} 
             alt={product.name}
-            className="w-full h-full object-cover"
-            style={{ objectPosition: 'top center' }}
+            aspectRatio={imageAspectRatio}
           />
-        )}
-        
-        {/* Price badge - Figma: top-left, 12px from edges, h-24, dark bg with white text */}
-        {config.showPrice && (
+          {/* Price badge overlaid on gallery */}
+          {config.showPrice && (
+            <div 
+              className="absolute flex items-center justify-center"
+              style={{
+                top: '12px',
+                left: '12px',
+                height: '24px',
+                padding: '3px 6px 2px 6px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(9, 14, 21, 0.4)',
+                backdropFilter: 'blur(20px)',
+                zIndex: 10,
+              }}
+            >
+              <span style={{ fontSize: '14px', fontWeight: 500, color: '#ffffff', lineHeight: '1.5' }}>
+                {formatPrice(product.price)}
+              </span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="relative w-full" style={{ aspectRatio: imageAspectRatio }}>
+          {config.showImage && (
+            <img 
+              src={product.image} 
+              alt={product.name}
+              className="w-full h-full object-cover"
+              style={{ objectPosition: 'top center' }}
+            />
+          )}
+          
+          {/* Price badge - Figma: top-left, 12px from edges, h-24, dark bg with white text */}
+          {config.showPrice && (
           <div 
             className="absolute flex items-center justify-center"
             style={{
@@ -238,26 +291,27 @@ export function ProductCard({
           </div>
         )}
 
-        {/* Promo Badge - top-right to avoid conflict with price */}
-        {config.showPromoBadge && badge && (
-          <div 
-            className="absolute flex items-center justify-center"
-            style={{
-              top: '12px',
-              right: '12px',
-              height: '24px',
-              padding: '3px 6px 2px 6px',
-              borderRadius: '8px',
-              backgroundColor: 'rgba(9, 14, 21, 0.7)',
-              backdropFilter: 'blur(20px)',
-            }}
-          >
-            <span style={{ fontSize: '12px', fontWeight: 500, color: '#ffffff', lineHeight: '1.5' }}>
-              {badge.text}
-            </span>
-          </div>
-        )}
-      </div>
+          {/* Promo Badge - top-right to avoid conflict with price */}
+          {config.showPromoBadge && badge && (
+            <div 
+              className="absolute flex items-center justify-center"
+              style={{
+                top: '12px',
+                right: '12px',
+                height: '24px',
+                padding: '3px 6px 2px 6px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(9, 14, 21, 0.7)',
+                backdropFilter: 'blur(20px)',
+              }}
+            >
+              <span style={{ fontSize: '12px', fontWeight: 500, color: '#ffffff', lineHeight: '1.5' }}>
+                {badge.text}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Content - Figma: px-16, pt-14, pb-16 */}
       <div style={{ padding: '14px 16px 16px 16px' }}>

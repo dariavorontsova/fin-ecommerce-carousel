@@ -1,4 +1,5 @@
-import { ReactNode } from 'react';
+import { ReactNode, Children } from 'react';
+import { motion } from 'framer-motion';
 
 interface GridLayoutProps {
   children: ReactNode;
@@ -14,7 +15,7 @@ export function GridLayout({
   maxItems 
 }: GridLayoutProps) {
   // Convert children to array and optionally limit
-  const childArray = Array.isArray(children) ? children : [children];
+  const childArray = Children.toArray(children);
   const displayChildren = maxItems ? childArray.slice(0, maxItems) : childArray;
   const hasMore = maxItems && childArray.length > maxItems;
 
@@ -24,7 +25,20 @@ export function GridLayout({
         className={`grid ${columns === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}
         style={{ gap: `${gap}px` }}
       >
-        {displayChildren}
+        {displayChildren.map((child, index) => (
+          <motion.div
+            key={index}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{
+              duration: 0.3,
+              delay: index * 0.05,
+              ease: [0.25, 0.1, 0.25, 1],
+            }}
+          >
+            {child}
+          </motion.div>
+        ))}
       </div>
       
       {hasMore && (

@@ -1,4 +1,5 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Message } from '../../types/message';
 import { CardConfig, CardLayout, DEFAULT_CARD_CONFIG } from '../../types/product';
 import { MessageBubble } from './MessageBubble';
@@ -10,6 +11,22 @@ interface MessengerThreadProps {
   isLoading?: boolean;
   aiReasoningMode?: boolean;
 }
+
+// Status messages that cycle during loading - simulates system transparency
+const LOADING_STAGES = [
+  'Understanding your request',
+  'Analyzing what you need',
+  'Searching the catalog',
+  'Looking through options',
+  'Comparing products',
+  'Finding the best matches',
+  'Evaluating quality and reviews',
+  'Considering your preferences',
+  'Selecting top recommendations',
+  'Crafting personalized suggestions',
+  'Putting it all together',
+  'Almost ready',
+];
 
 export function MessengerThread({ 
   messages, 
@@ -65,18 +82,59 @@ function EmptyState() {
   );
 }
 
-// Typing indicator when agent is "thinking"
+// Typing indicator when agent is "thinking" - shows cycling status messages inside chat bubble
 function TypingIndicator() {
+  const [stageIndex, setStageIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setStageIndex((prev) => (prev + 1) % LOADING_STAGES.length);
+    }, 2500);
+
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <div 
-      className="px-4 py-3 rounded-[20px] inline-block"
+      className="max-w-[336px] px-4 py-3 rounded-[20px] overflow-hidden"
       style={{ backgroundColor: '#f5f5f5' }}
     >
-      <div className="flex gap-1">
-        <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#6c6f74', animationDelay: '0ms' }} />
-        <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#6c6f74', animationDelay: '150ms' }} />
-        <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#6c6f74', animationDelay: '300ms' }} />
-      </div>
+      <AnimatePresence mode="wait">
+        <motion.span
+          key={stageIndex}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.4, ease: 'easeInOut' }}
+          className="text-sm shimmer-text block"
+        >
+          {LOADING_STAGES[stageIndex]}...
+        </motion.span>
+      </AnimatePresence>
+      
+      {/* CSS for shimmer animation */}
+      <style>{`
+        .shimmer-text {
+          background: linear-gradient(
+            90deg,
+            #525252 0%,
+            #737373 25%,
+            #a3a3a3 50%,
+            #737373 75%,
+            #525252 100%
+          );
+          background-size: 200% 100%;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: shimmer 3s ease-in-out infinite;
+        }
+        
+        @keyframes shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+      `}</style>
     </div>
   );
 }
