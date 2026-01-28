@@ -187,7 +187,7 @@ export function ProductCard({
           {config.showRating && (
             <div className="flex items-center gap-1 mt-1">
               <div className="flex items-center gap-0.5">
-                <img src="/src/components/icons/star-full.svg" alt="" className="w-3 h-3" />
+                <img src="/icons/star-full.svg" alt="" className="w-3 h-3" />
                 <span style={{ fontSize: '13px', fontWeight: 500, color: '#14161a' }}>{product.rating}</span>
               </div>
               <span style={{ fontSize: '13px', color: '#6c6f74' }}>({product.reviewCount})</span>
@@ -356,7 +356,7 @@ export function ProductCard({
           {config.showRating && (
             <div className="flex items-center gap-1" style={{ height: '16px' }}>
               <div className="flex items-center gap-0.5">
-                <img src="/src/components/icons/star-full.svg" alt="" className="w-3 h-3" />
+                <img src="/icons/star-full.svg" alt="" className="w-3 h-3" />
                 <span style={{ fontSize: '13px', fontWeight: 500, lineHeight: '16px', color: '#14161a' }}>
                   {product.rating}
                 </span>

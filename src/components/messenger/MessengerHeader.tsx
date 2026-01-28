@@ -15,14 +15,14 @@ export function MessengerHeader({ onBack, onMenu, onClose }: MessengerHeaderProp
           className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-neutral-100 transition-colors"
           aria-label="Go back"
         >
-          <img src="/src/components/icons/back.svg" alt="" className="w-4 h-4 opacity-60" />
+          <img src="/icons/back.svg" alt="" className="w-4 h-4 opacity-60" />
         </button>
         
         {/* Avatar + Title */}
         <div className="flex items-center gap-2 py-2">
           {/* Fin Logo - 32x32 */}
           <img 
-            src="/src/components/icons/fin.svg" 
+            src="/icons/fin.svg" 
             alt="Fin" 
             className="w-8 h-8"
           />
@@ -38,7 +38,7 @@ export function MessengerHeader({ onBack, onMenu, onClose }: MessengerHeaderProp
           className="w-9 h-9 flex items-center justify-center rounded-[10px] hover:bg-neutral-100 transition-colors"
           aria-label="Menu"
         >
-          <img src="/src/components/icons/ellipsis.svg" alt="" className="w-4 h-4 opacity-60" />
+          <img src="/icons/ellipsis.svg" alt="" className="w-4 h-4 opacity-60" />
         </button>
         {/* Close button - 36x36 */}
         <button 
@@ -46,7 +46,7 @@ export function MessengerHeader({ onBack, onMenu, onClose }: MessengerHeaderProp
           className="w-9 h-9 flex items-center justify-center rounded-[10px] hover:bg-neutral-100 transition-colors"
           aria-label="Close"
         >
-          <img src="/src/components/icons/close.svg" alt="" className="w-4 h-4 opacity-60" />
+          <img src="/icons/close.svg" alt="" className="w-4 h-4 opacity-60" />
         </button>
       </div>
     </div>

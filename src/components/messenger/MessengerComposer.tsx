@@ -76,7 +76,7 @@ export function MessengerComposer({
                 className="p-1 hover:bg-neutral-100 rounded transition-colors"
                 aria-label="Attach file"
               >
-                <img src="/src/components/icons/attachment.svg" alt="" className="w-4 h-4 opacity-50" />
+                <img src="/icons/attachment.svg" alt="" className="w-4 h-4 opacity-50" />
               </button>
               {/* Emoji */}
               <button 
@@ -84,7 +84,7 @@ export function MessengerComposer({
                 className="p-1 hover:bg-neutral-100 rounded transition-colors"
                 aria-label="Add emoji"
               >
-                <img src="/src/components/icons/emoji.svg" alt="" className="w-4 h-4 opacity-50" />
+                <img src="/icons/emoji.svg" alt="" className="w-4 h-4 opacity-50" />
               </button>
               {/* GIF */}
               <button 
@@ -92,7 +92,7 @@ export function MessengerComposer({
                 className="p-1 hover:bg-neutral-100 rounded transition-colors"
                 aria-label="Add GIF"
               >
-                <img src="/src/components/icons/GIF.svg" alt="" className="w-4 h-4 opacity-50" />
+                <img src="/icons/GIF.svg" alt="" className="w-4 h-4 opacity-50" />
               </button>
               {/* Microphone */}
               <button 
@@ -100,7 +100,7 @@ export function MessengerComposer({
                 className="p-1 hover:bg-neutral-100 rounded transition-colors"
                 aria-label="Voice message"
               >
-                <img src="/src/components/icons/microphone.svg" alt="" className="w-4 h-4 opacity-50" />
+                <img src="/icons/microphone.svg" alt="" className="w-4 h-4 opacity-50" />
               </button>
             </div>
             
@@ -114,7 +114,7 @@ export function MessengerComposer({
               aria-label="Send message"
             >
               <img 
-                src="/src/components/icons/submit.svg" 
+                src="/icons/submit.svg" 
                 alt="" 
                 className={`w-4 h-4 ${message.trim() ? 'invert' : 'opacity-60'}`} 
               />
