@@ -3,7 +3,7 @@ import { Messenger } from './components/messenger';
 import { CardConfig, DEFAULT_CARD_CONFIG, CardLayout, MessengerState, Product, CardDesign, ImageRatio } from './types/product';
 import { Message, createUserMessage, createAgentMessage, LLMDecision } from './types/message';
 import { getAllProducts } from './data/products';
-import { demoCatalog, getDemoProductsByRatio } from './data/catalog';
+import { getDemoProductsByRatio } from './data/catalog';
 import {
   queryFinMock,
   queryFin,
@@ -11,9 +11,6 @@ import {
   isConfigured,
   ConversationMessage,
   FinResponse,
-  searchProducts,
-  isCached,
-  SearchResult,
   SessionState,
 } from './services';
 
@@ -22,7 +19,7 @@ import { Label } from './components/ui/label';
 import { Switch } from './components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from './components/ui/toggle-group';
 import { Separator } from './components/ui/separator';
-import { Input } from './components/ui/input';
+// import { Input } from './components/ui/input';
 import {
   Select,
   SelectContent,
@@ -83,14 +80,7 @@ function loadConversation(): Message[] | null {
   return null;
 }
 
-// Helper to clear saved conversation
-function clearSavedConversation() {
-  try {
-    localStorage.removeItem(CONVERSATION_STORAGE_KEY);
-  } catch (e) {
-    console.warn('Failed to clear conversation:', e);
-  }
-}
+
 
 function App() {
   const [messengerState, setMessengerState] = useState<MessengerState>('default');
@@ -127,16 +117,8 @@ function App() {
   });
   
   // Page context: simulate which page user is on (affects query interpretation)
-  const [pageContext, setPageContext] = useState<'home' | 'category' | 'product'>('home');
-  const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
-
-  // Product preview state (using subcategory since all products are 'clothing')
-  const [previewSubcategory, setPreviewSubcategory] = useState<string>('');
-
-  // Live search state (on-demand HuggingFace)
-  const [liveSearchQuery, setLiveSearchQuery] = useState('');
-  const [liveSearching, setLiveSearching] = useState(false);
-  const [lastSearchResult, setLastSearchResult] = useState<SearchResult | null>(null);
+  const [pageContext] = useState<'home' | 'category' | 'product'>('home');
+  const [viewingProduct] = useState<Product | null>(null);
 
   // Load products and auto-load demo on mount
   useEffect(() => {
@@ -292,16 +274,6 @@ function App() {
     setCardConfig(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const clearConversation = () => {
-    setMessages([]);
-    // Reset session state to fresh start
-    setSessionState({
-      conversationMode: 'neutral',
-      productsShownThisSession: [],
-    });
-    clearSavedConversation();
-  };
-
   // Build a demo conversation for a given ratio/store
   const buildDemoMessages = (ratio: ImageRatio, layout: CardLayout): Message[] => {
     const ratioProducts = getDemoProductsByRatio(ratio);
@@ -338,66 +310,6 @@ function App() {
       setMessages(createDemoConversation(allProducts));
     }
   };
-
-  // Preview products from a specific subcategory
-  const previewProducts = (subcategory: string) => {
-    const subcategoryProducts = allProducts.filter(p => p.subcategory === subcategory).slice(0, 6);
-    if (subcategoryProducts.length === 0) return;
-
-    // Capitalize subcategory for display
-    const label = subcategory.charAt(0).toUpperCase() + subcategory.slice(1);
-    const previewMsg = createAgentMessage(
-      `Here are our ${label}:`,
-      {
-        products: subcategoryProducts,
-        layout: cardLayout,
-      }
-    );
-    setMessages(prev => [...prev, previewMsg]);
-  };
-
-  // Live search from HuggingFace (on-demand)
-  const handleLiveSearch = async () => {
-    if (!liveSearchQuery.trim()) return;
-    
-    setLiveSearching(true);
-    try {
-      const result = await searchProducts({
-        query: liveSearchQuery,
-        maxResults: 6,
-      });
-      
-      setLastSearchResult(result);
-      
-      // Show results in messenger
-      if (result.products.length > 0) {
-        const searchMsg = createAgentMessage(
-          `Found ${result.totalMatches} products for "${liveSearchQuery}" (${result.searchTime}ms${result.fromCache ? ', cached' : ', fetched'}):`,
-          {
-            products: result.products,
-            layout: cardLayout,
-          }
-        );
-        setMessages(prev => [...prev, searchMsg]);
-      } else {
-        const noResultsMsg = createAgentMessage(
-          `No products found for "${liveSearchQuery}". Try: jacket, dress, boots, jeans, etc.`
-        );
-        setMessages(prev => [...prev, noResultsMsg]);
-      }
-    } catch (error) {
-      console.error('Live search error:', error);
-      const errorMsg = createAgentMessage(
-        'Failed to search products. Check console for details.'
-      );
-      setMessages(prev => [...prev, errorMsg]);
-    } finally {
-      setLiveSearching(false);
-    }
-  };
-
-  // Get available subcategories (ones that have products)
-  const availableSubcategories = [...new Set(allProducts.map(p => p.subcategory))].sort();
 
   return (
     <div className="min-h-screen bg-neutral-100">

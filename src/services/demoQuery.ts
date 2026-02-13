@@ -11,7 +11,7 @@
  */
 
 import { Product } from '../types/product';
-import { demoCatalog, searchDemoCatalog, getDemoProductById } from '../data/catalog';
+import { searchDemoCatalog, getDemoProductById } from '../data/catalog';
 import {
   FinResponse,
   LLMResponse,
@@ -111,7 +111,7 @@ interface DemoLLMResponse {
 export async function queryFinDemo(
   userMessage: string,
   conversationHistory: ConversationMessage[] = [],
-  context: ConversationContext = {}
+  _context: ConversationContext = {}
 ): Promise<FinResponse> {
   const startTime = performance.now();
 
