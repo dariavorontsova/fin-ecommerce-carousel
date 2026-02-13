@@ -240,7 +240,7 @@ export function ProductCard({
                 className="absolute inset-0 pointer-events-none"
                 style={{
                   borderRadius: '20px',
-                  boxShadow: isHovered ? 'inset 0 0 0 1px rgba(9, 14, 21, 0.2)' : 'inset 0 0 0 1px rgba(9, 14, 21, 0.08)',
+                  boxShadow: isHovered ? 'inset 0 0 0 1px rgba(9, 14, 21, 0.3)' : 'inset 0 0 0 1px rgba(9, 14, 21, 0.08)',
                   transition: 'box-shadow 0.15s ease-out',
                   zIndex: 5,
                 }}
@@ -272,7 +272,7 @@ export function ProductCard({
                 className="absolute inset-0 pointer-events-none"
                 style={{
                   borderRadius: '20px',
-                  boxShadow: isHovered ? 'inset 0 0 0 1px rgba(9, 14, 21, 0.2)' : 'inset 0 0 0 1px rgba(9, 14, 21, 0.08)',
+                  boxShadow: isHovered ? 'inset 0 0 0 1px rgba(9, 14, 21, 0.3)' : 'inset 0 0 0 1px rgba(9, 14, 21, 0.08)',
                   transition: 'box-shadow 0.15s ease-out',
                   zIndex: 5,
                 }}
