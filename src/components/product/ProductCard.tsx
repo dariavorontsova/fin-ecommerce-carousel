@@ -59,17 +59,18 @@ export function ProductCard({
 
   // Image aspect ratio:
   // - Grid cards (default variant): controlled by imageRatio selector
-  // - Single cards: keep their own sizing
+  // - Single cards: same as grid, except portrait → square (too tall otherwise)
   // - Compact/carousel: keep their own sizing
   const gridAspectRatio = IMAGE_RATIO_VALUES[imageRatio];
+  const singleAspectRatio = imageRatio === 'portrait' ? '1 / 1' : gridAspectRatio;
 
   // AI Reasoning Mode - Figma spec
   if (aiReasoningMode) {
     const isCompactMode = variant === 'compact';
     const isSingleMode = variant === 'single';
     
-    // Single mode: 256px width (20% smaller than 320)
-    const cardWidth = isSingleMode ? 'w-[256px] max-w-[256px]' : isCompactMode ? 'w-[200px] min-w-[200px]' : 'w-full';
+    // Single mode: 340px width with square image
+    const cardWidth = isSingleMode ? 'w-[340px] max-w-[340px]' : isCompactMode ? 'w-[200px] min-w-[200px]' : 'w-full';
     
     return (
       <div 
@@ -149,9 +150,9 @@ export function ProductCard({
       // Fall through to default list rendering below
     } else {
       // Determine width based on variant - S size for compact, M size for single/default
-      const widthClass = isCompact ? 'w-[180px] min-w-[180px]' : isSingle ? 'w-[210px] max-w-[210px]' : 'w-full';
-      // Grid cards use the imageRatio selector; single/compact keep their own
-      const imageAspectRatio = (variant === 'default') ? gridAspectRatio : '3 / 4';
+      const widthClass = isCompact ? 'w-[180px] min-w-[180px]' : isSingle ? 'w-[340px] max-w-[340px]' : 'w-full';
+      // Grid cards use the imageRatio selector; single cards use singleAspectRatio (portrait→square)
+      const imageAspectRatio = (variant === 'default') ? gridAspectRatio : singleAspectRatio;
 
       return (
         <div
@@ -164,22 +165,35 @@ export function ProductCard({
           onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
           onClick={handleClick}
         >
-          {/* Image Container with CTA button */}
-          <div className="relative w-full" style={{ aspectRatio: imageAspectRatio }}>
-            {config.showImage && (
-              <img
-                src={product.image}
+          {/* Image Container - gallery for single with multiple images, otherwise single image */}
+          {isSingle && product.images && product.images.length > 1 ? (
+            <div className="relative">
+              <ImageGallery 
+                images={product.images} 
                 alt={product.name}
-                className="w-full h-full object-cover"
-                style={{ objectPosition: 'top center' }}
+                aspectRatio={imageAspectRatio}
               />
-            )}
-
-            {/* Add to Cart CTA - anchored bottom-right, expands left on button hover */}
-            {config.showAddToCart && (
-              <AddToCartButton productId={product.id} />
-            )}
-          </div>
+              {/* Add to Cart CTA - anchored bottom-right, expands left on button hover */}
+              {config.showAddToCart && (
+                <AddToCartButton productId={product.id} />
+              )}
+            </div>
+          ) : (
+            <div className="relative w-full" style={{ aspectRatio: imageAspectRatio }}>
+              {config.showImage && (
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                  style={{ objectPosition: 'top center' }}
+                />
+              )}
+              {/* Add to Cart CTA - anchored bottom-right, expands left on button hover */}
+              {config.showAddToCart && (
+                <AddToCartButton productId={product.id} />
+              )}
+            </div>
+          )}
 
           {/* Content - Figma: px-16, py-14 */}
           <div style={{ padding: '14px 16px' }}>
@@ -247,6 +261,175 @@ export function ProductCard({
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // Borderless Design - no card border, rounded image corners
+  if (cardDesign === 'borderless') {
+    const isCompact = variant === 'compact';
+    const isSingle = variant === 'single';
+    const isList = variant === 'list';
+
+    if (isList) {
+      // Fall through to default list rendering below
+    } else {
+      const widthClass = isCompact ? 'w-[180px] min-w-[180px]' : isSingle ? 'w-[340px] max-w-[340px]' : 'w-full';
+      // Grid cards use the imageRatio selector; single cards use singleAspectRatio (portrait→square)
+      const imageAspectRatio = (variant === 'default') ? gridAspectRatio : singleAspectRatio;
+
+      // Figma: details container has fixed height 82px for consistent card heights
+      // With description: title wraps up to 2 lines, 8px gap to price row
+      // Without description: title is 1 line truncated, 4px gap to price row
+      // The fixed height ensures alignment across cards regardless of content length
+      const hasDescription = config.showDescription;
+
+      const [isHovered, setIsHovered] = React.useState(false);
+
+      return (
+        <div
+          className={`cursor-pointer flex-shrink-0 flex flex-col ${widthClass}`}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+          onClick={handleClick}
+        >
+          {/* Image - gallery for single with multiple images, otherwise single image */}
+          {isSingle && product.images && product.images.length > 1 ? (
+            <div
+              className="relative w-full overflow-hidden"
+              style={{
+                borderRadius: '20px',
+              }}
+            >
+              <ImageGallery 
+                images={product.images} 
+                alt={product.name}
+                aspectRatio={imageAspectRatio}
+              />
+              {/* Hover border overlay */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  borderRadius: '20px',
+                  boxShadow: isHovered ? 'inset 0 0 0 1px rgba(9, 14, 21, 0.2)' : 'none',
+                  transition: 'box-shadow 0.15s ease-out',
+                  zIndex: 5,
+                }}
+              />
+              {/* Add to Cart CTA */}
+              {config.showAddToCart && (
+                <AddToCartButton productId={product.id} />
+              )}
+            </div>
+          ) : (
+            <div
+              className="relative w-full overflow-hidden"
+              style={{
+                aspectRatio: imageAspectRatio,
+                borderRadius: '20px',
+              }}
+            >
+              {config.showImage && (
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                  style={{ objectPosition: 'top center' }}
+                />
+              )}
+
+              {/* Hover border overlay - rendered ON TOP of image */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  borderRadius: '20px',
+                  boxShadow: isHovered ? 'inset 0 0 0 1px rgba(9, 14, 21, 0.2)' : 'none',
+                  transition: 'box-shadow 0.15s ease-out',
+                  zIndex: 5,
+                }}
+              />
+
+              {/* Add to Cart CTA */}
+              {config.showAddToCart && (
+                <AddToCartButton productId={product.id} />
+              )}
+            </div>
+          )}
+
+          {/* Details - Figma: padding 8px */}
+          {/* With description: 8px gap between (title+desc) and price. Without: 4px gap */}
+          {/* No description: fixed 82px (2-line title + price fits). With description: grows naturally */}
+          <div
+            className="flex flex-col"
+            style={{
+              padding: '8px',
+              gap: hasDescription ? '8px' : '4px',
+              ...(!hasDescription ? { height: '82px' } : {}),
+            }}
+          >
+            {/* Title + Description block */}
+            <div className="flex flex-col" style={{ gap: '2px' }}>
+              {config.showTitle && (
+                <p
+                  className={hasDescription ? 'truncate' : 'line-clamp-2'}
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 400,
+                    lineHeight: '1.5',
+                    color: '#14161a',
+                  }}
+                >
+                  {product.name}
+                </p>
+              )}
+              {hasDescription && (
+                <p
+                  className="line-clamp-2"
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 400,
+                    lineHeight: '16px',
+                    color: '#6c6f74',
+                  }}
+                >
+                  {product.description}
+                </p>
+              )}
+            </div>
+
+            {/* Price + Rating row - sticks directly below title/description */}
+            <div className="flex items-center gap-2">
+              {config.showPrice && (
+                <span
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    lineHeight: '1.5',
+                    color: '#090e15',
+                  }}
+                >
+                  {formatPrice(product.price)}
+                </span>
+              )}
+
+              {config.showRating && (
+                <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path
+                        d="M6 1L7.545 4.13L11 4.635L8.5 7.07L9.09 10.51L6 8.885L2.91 10.51L3.5 7.07L1 4.635L4.455 4.13L6 1Z"
+                        fill="#6c6f74"
+                      />
+                    </svg>
+                    <span style={{ fontSize: '13px', fontWeight: 600, lineHeight: '1.5', color: '#6c6f74' }}>
+                      {product.rating}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -347,10 +530,10 @@ export function ProductCard({
   const isCompact = variant === 'compact';
   const isSingle = variant === 'single';
   
-  // Determine width class - single cards are 256px (20% smaller than 320)
-  const widthClass = isSingle ? 'w-[256px] max-w-[256px]' : isCompact ? 'flex-shrink-0 w-[200px] min-w-[200px]' : 'w-full';
-  // Grid cards use the imageRatio selector; single/compact keep 1:1
-  const imageAspectRatio = (variant === 'default') ? gridAspectRatio : '1 / 1';
+  // Single cards: 340px width
+  const widthClass = isSingle ? 'w-[340px] max-w-[340px]' : isCompact ? 'flex-shrink-0 w-[200px] min-w-[200px]' : 'w-full';
+  // Grid cards use the imageRatio selector; single cards use singleAspectRatio (portrait→square)
+  const imageAspectRatio = (variant === 'default') ? gridAspectRatio : singleAspectRatio;
   
   return (
     <div 

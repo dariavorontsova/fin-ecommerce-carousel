@@ -42,16 +42,26 @@ export function MessengerThread({
   aiReasoningMode = false,
 }: MessengerThreadProps) {
   const threadEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const prevFirstMessageId = useRef<string | null>(null);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Detect full conversation reset vs. new message appended
   useEffect(() => {
-    threadEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const firstId = messages.length > 0 ? messages[0].id : null;
+    if (firstId !== prevFirstMessageId.current) {
+      // Conversation was replaced — scroll to top
+      scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      // New message appended — scroll to bottom
+      threadEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+    prevFirstMessageId.current = firstId;
   }, [messages]);
 
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="h-full overflow-y-auto messenger-scroll bg-white">
+    <div ref={scrollContainerRef} className="h-full overflow-y-auto messenger-scroll bg-white">
       {/* Figma: px-16px, gap-16px, pb-16px */}
       <div className="px-4 pt-4 pb-4 flex flex-col gap-4">
         {isEmpty ? (

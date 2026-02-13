@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 
 interface ImageGalleryProps {
@@ -7,12 +7,64 @@ interface ImageGalleryProps {
   aspectRatio?: string;
 }
 
+/**
+ * Sample the average brightness of a horizontal strip at the bottom-center of an image.
+ * Returns a value 0–255 (0 = black, 255 = white).
+ */
+function sampleBottomBrightness(src: string): Promise<number> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      // Sample a small strip: 60% of width, 12% of height, at the bottom-center
+      const sampleW = Math.round(img.naturalWidth * 0.6);
+      const sampleH = Math.max(1, Math.round(img.naturalHeight * 0.12));
+      canvas.width = sampleW;
+      canvas.height = sampleH;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(128); return; }
+
+      // Draw just the bottom-center strip
+      const sx = Math.round((img.naturalWidth - sampleW) / 2);
+      const sy = img.naturalHeight - sampleH;
+      ctx.drawImage(img, sx, sy, sampleW, sampleH, 0, 0, sampleW, sampleH);
+
+      const data = ctx.getImageData(0, 0, sampleW, sampleH).data;
+      let totalLuminance = 0;
+      const pixelCount = data.length / 4;
+      for (let i = 0; i < data.length; i += 4) {
+        // Perceived luminance: 0.299R + 0.587G + 0.114B
+        totalLuminance += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      }
+      resolve(totalLuminance / pixelCount);
+    };
+    img.onerror = () => resolve(128); // fallback to mid-tone
+    img.src = src;
+  });
+}
+
 export function ImageGallery({ images, alt, aspectRatio = '1 / 1' }: ImageGalleryProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovering, setIsHovering] = useState(false);
+  const [isLightBg, setIsLightBg] = useState(true); // assume light by default
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-rotation every 1.5 seconds when not hovering
+  // Sample brightness of current image's bottom area
+  const checkBrightness = useCallback(async (src: string) => {
+    const brightness = await sampleBottomBrightness(src);
+    // Threshold: above 160 is "light" → use dark dots
+    setIsLightBg(brightness > 160);
+  }, []);
+
+  // Re-check brightness when current image changes
+  useEffect(() => {
+    if (images[currentIndex]) {
+      checkBrightness(images[currentIndex]);
+    }
+  }, [currentIndex, images, checkBrightness]);
+
+  // Auto-rotation every 3 seconds when not hovering
   useEffect(() => {
     if (isHovering || images.length <= 1) return;
     
@@ -53,6 +105,10 @@ export function ImageGallery({ images, alt, aspectRatio = '1 / 1' }: ImageGaller
     );
   }
 
+  // Dot colors: dark on light backgrounds, light on dark backgrounds
+  const dotActive = isLightBg ? 'rgba(9, 14, 21, 0.8)' : 'rgba(255, 255, 255, 1)';
+  const dotInactive = isLightBg ? 'rgba(9, 14, 21, 0.25)' : 'rgba(255, 255, 255, 0.5)';
+
   return (
     <div 
       ref={containerRef}
@@ -77,18 +133,15 @@ export function ImageGallery({ images, alt, aspectRatio = '1 / 1' }: ImageGaller
           }}
           transition={{ 
             duration: 0.3, 
-            ease: [0.4, 0, 0.2, 1] // Smooth easing
+            ease: [0.4, 0, 0.2, 1]
           }}
         />
       ))}
 
-      {/* Page indicator - matching price tag style: rgba(9, 14, 21, 0.4) with blur(20px) */}
+      {/* Page indicator - no background, adaptive dot color, bottom-aligned with CTA at 12px */}
       <div 
-        className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2 py-1.5 rounded-full"
-        style={{
-          backgroundColor: 'rgba(9, 14, 21, 0.4)',
-          backdropFilter: 'blur(20px)',
-        }}
+        className="absolute left-1/2 -translate-x-1/2 flex items-end gap-1.5"
+        style={{ bottom: '12px' }}
       >
         {images.map((_, index) => (
           <button
@@ -103,7 +156,7 @@ export function ImageGallery({ images, alt, aspectRatio = '1 / 1' }: ImageGaller
               initial={false}
               animate={{
                 width: index === currentIndex ? 16 : 6,
-                backgroundColor: index === currentIndex ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.5)',
+                backgroundColor: index === currentIndex ? dotActive : dotInactive,
               }}
               transition={{ 
                 duration: 0.25,

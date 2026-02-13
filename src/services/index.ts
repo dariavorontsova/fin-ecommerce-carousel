@@ -29,3 +29,7 @@ export {
   type SearchOptions,
   type SearchResult,
 } from './productSearch';
+
+export {
+  queryFinDemo,
+} from './demoQuery';

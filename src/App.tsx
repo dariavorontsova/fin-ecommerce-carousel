@@ -3,9 +3,11 @@ import { Messenger } from './components/messenger';
 import { CardConfig, DEFAULT_CARD_CONFIG, CardLayout, MessengerState, Product, CardDesign, ImageRatio } from './types/product';
 import { Message, createUserMessage, createAgentMessage, LLMDecision } from './types/message';
 import { getAllProducts } from './data/products';
+import { demoCatalog, getDemoProductsByRatio } from './data/catalog';
 import {
   queryFinMock,
   queryFin,
+  queryFinDemo,
   isConfigured,
   ConversationMessage,
   FinResponse,
@@ -103,11 +105,14 @@ function App() {
     showPrice: true,
     showRating: false,
     showDescription: true,
-    showAddToCart: true,
+    showAddToCart: false,
     showViewDetailsLarge: false,
   });
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
+
+  // Demo mode: uses local catalog + lightweight LLM for fast, controlled demos
+  const [demoMode, setDemoMode] = useState(true); // Default ON for demo purposes
 
   // LLM Integration state
   const [lastResponse, setLastResponse] = useState<FinResponse | null>(null);
@@ -133,19 +138,23 @@ function App() {
   const [liveSearching, setLiveSearching] = useState(false);
   const [lastSearchResult, setLastSearchResult] = useState<SearchResult | null>(null);
 
-  // Load products and restore conversation on mount
+  // Load products and auto-load demo on mount
   useEffect(() => {
     async function loadProducts() {
       try {
         const products = await getAllProducts();
         setAllProducts(products);
         
-        // Try to restore saved conversation, otherwise start empty
-        const savedConversation = loadConversation();
-        if (savedConversation && savedConversation.length > 0) {
-          setMessages(savedConversation);
+        if (demoMode) {
+          // Always load a fresh demo conversation on mount
+          setMessages(buildDemoMessages(imageRatio, cardLayout));
+        } else {
+          // Try to restore saved conversation, otherwise start empty
+          const savedConversation = loadConversation();
+          if (savedConversation && savedConversation.length > 0) {
+            setMessages(savedConversation);
+          }
         }
-        // Otherwise messages stay empty (user can load demo)
       } catch (error) {
         console.error('Failed to load products:', error);
       } finally {
@@ -153,6 +162,7 @@ function App() {
       }
     }
     loadProducts();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Persist conversation whenever it changes
@@ -179,15 +189,18 @@ function App() {
 
       let response: FinResponse;
 
-      if (llmConfigured) {
-        // Pass full context including session state
+      if (demoMode) {
+        // Demo mode: fast local catalog + lightweight LLM
+        response = await queryFinDemo(content, history, { sessionState });
+      } else if (llmConfigured) {
+        // Full LLM mode with external product search
         response = await queryFin(content, history, {
           page_type: pageContext,
           viewingProduct: pageContext === 'product' && viewingProduct ? viewingProduct : undefined,
-          sessionState, // Pass full session state to LLM
+          sessionState,
         });
       } else {
-        // Use mock mode
+        // Mock mode (no API key)
         response = await queryFinMock(content, history, { sessionState });
       }
 
@@ -273,7 +286,7 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, llmConfigured, cardLayout, sessionState, pageContext, viewingProduct]);
+  }, [messages, llmConfigured, demoMode, cardLayout, sessionState, pageContext, viewingProduct]);
 
   const toggleConfig = (key: keyof CardConfig) => {
     setCardConfig(prev => ({ ...prev, [key]: !prev[key] }));
@@ -289,8 +302,39 @@ function App() {
     clearSavedConversation();
   };
 
+  // Build a demo conversation for a given ratio/store
+  const buildDemoMessages = (ratio: ImageRatio, layout: CardLayout): Message[] => {
+    const ratioProducts = getDemoProductsByRatio(ratio);
+    const shuffled = [...ratioProducts].sort(() => Math.random() - 0.5);
+    const productsToShow = shuffled.slice(0, 8);
+    // Pick one product from the shown ones for the follow-up single card
+    const featuredProduct = productsToShow[0];
+
+    const storeMap = {
+      landscape: { query: 'Show me your sofas', brand: 'Kave Home', label: 'sofas' },
+      square: { query: 'Show me some trainers', brand: '', label: 'trainers' },
+      portrait: { query: 'Show me gym t-shirts', brand: 'Gymshark', label: 'tops' },
+    };
+    const store = storeMap[ratio];
+
+    return [
+      createUserMessage(store.query),
+      createAgentMessage(
+        `Here's a selection of ${store.label}${store.brand ? ` from ${store.brand}` : ''}. Each one brings something different — take a look.`,
+        { products: productsToShow, layout }
+      ),
+      createUserMessage(`Tell me more about the ${featuredProduct.name}`),
+      createAgentMessage(
+        `The ${featuredProduct.name} is one of our favourites. ${featuredProduct.description}`,
+        { products: [featuredProduct], layout: 'grid' }
+      ),
+    ];
+  };
+
   const loadDemoConversation = () => {
-    if (allProducts.length > 0) {
+    if (demoMode) {
+      setMessages(buildDemoMessages(imageRatio, cardLayout));
+    } else if (allProducts.length > 0) {
       setMessages(createDemoConversation(allProducts));
     }
   };
@@ -359,16 +403,56 @@ function App() {
     <div className="min-h-screen bg-neutral-100">
       {/* Left side: Config Panel */}
       <div className="fixed left-0 top-0 bottom-0 w-80 bg-neutral-100 border-r border-neutral-200 overflow-y-auto">
-        <div className="p-6 space-y-6">
-          {/* Header */}
-          <div>
+        <div className="p-6 space-y-5">
+          {/* Header + Demo Mode */}
+          <div className="flex items-center justify-between">
             <h1 className="text-lg font-semibold text-neutral-900">
-              Fin E-commerce Prototype
+              Fin E-commerce
             </h1>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="demoMode" className="text-xs text-neutral-500 cursor-pointer">
+                Demo
+              </Label>
+              <Switch
+                id="demoMode"
+                checked={demoMode}
+                onCheckedChange={setDemoMode}
+              />
+            </div>
           </div>
 
+          {/* Demo Store Selector + Actions */}
+          <div className="space-y-2">
+            <Label className="text-xs text-neutral-500 uppercase tracking-wide">
+              Demo Store
+            </Label>
+            <div className="flex gap-2">
+              <Select value={imageRatio} onValueChange={(v) => {
+                setImageRatio(v as ImageRatio);
+              }}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="portrait">Gymshark (Portrait)</SelectItem>
+                  <SelectItem value="square">Trainer Store (Square)</SelectItem>
+                  <SelectItem value="landscape">Kave Home (Landscape)</SelectItem>
+                </SelectContent>
+              </Select>
+              <button
+                onClick={loadDemoConversation}
+                disabled={productsLoading}
+                className="px-3 py-1.5 text-xs bg-[#2a2a2a] text-white hover:bg-[#3a3a3a] disabled:opacity-40 rounded-md transition-colors shrink-0"
+              >
+                Load
+              </button>
+            </div>
+          </div>
+
+          <Separator className="bg-neutral-200" />
+
           {/* Messenger State */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <Label className="text-xs text-neutral-500 uppercase tracking-wide">
               Messenger State
             </Label>
@@ -387,8 +471,8 @@ function App() {
             </ToggleGroup>
           </div>
 
-          {/* Layout Selector */}
-          <div className="space-y-3">
+          {/* Card Layout */}
+          <div className="space-y-2">
             <Label className="text-xs text-neutral-500 uppercase tracking-wide">
               Card Layout
             </Label>
@@ -401,19 +485,14 @@ function App() {
               <ToggleGroupItem value="carousel" size="sm">
                 Carousel
               </ToggleGroupItem>
-              <ToggleGroupItem value="list" size="sm">
-                List
-              </ToggleGroupItem>
               <ToggleGroupItem value="grid" size="sm">
                 Grid
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
 
-          <Separator className="bg-neutral-200" />
-
-          {/* Card Design Selector */}
-          <div className="space-y-3">
+          {/* Card Design */}
+          <div className="space-y-2">
             <Label className="text-xs text-neutral-500 uppercase tracking-wide">
               Card Design
             </Label>
@@ -424,75 +503,9 @@ function App() {
               <SelectContent>
                 <SelectItem value="current">(v1) Current</SelectItem>
                 <SelectItem value="proposed">(v2) Minor changes</SelectItem>
-                <SelectItem value="borderless" disabled>(v3) Borderless</SelectItem>
+                <SelectItem value="borderless">(v3) Borderless</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-
-          {/* Image Ratio Selector */}
-          <div className="space-y-3">
-            <Label className="text-xs text-neutral-500 uppercase tracking-wide">
-              Image Ratio
-            </Label>
-            <Select value={imageRatio} onValueChange={(v) => setImageRatio(v as ImageRatio)}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="landscape">Landscape (4:3)</SelectItem>
-                <SelectItem value="square">Square (1:1)</SelectItem>
-                <SelectItem value="portrait">Portrait (3:4)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <Separator className="bg-neutral-200" />
-
-          {/* Page Context Selector */}
-          <div className="space-y-3">
-            <Label className="text-xs text-neutral-500 uppercase tracking-wide">
-              Page Context
-            </Label>
-            <p className="text-xs text-neutral-500 -mt-1">
-              Simulates which page the user is viewing
-            </p>
-            <Select value={pageContext} onValueChange={(v) => setPageContext(v as 'home' | 'category' | 'product')}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="home">Home Page</SelectItem>
-                <SelectItem value="category">Category Page</SelectItem>
-                <SelectItem value="product">Product Details Page</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            {/* Product selector when on PDP */}
-            {pageContext === 'product' && (
-              <div className="space-y-2">
-                <Label className="text-xs text-neutral-500">Viewing Product</Label>
-                <Select 
-                  value={viewingProduct?.id || ''} 
-                  onValueChange={(id) => setViewingProduct(allProducts.find(p => p.id === id) || null)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a product..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allProducts.slice(0, 20).map(p => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name.length > 40 ? p.name.substring(0, 40) + '...' : p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {viewingProduct && (
-                  <p className="text-xs text-neutral-500 italic">
-                    "{viewingProduct.name}" — {viewingProduct.subcategory}
-                  </p>
-                )}
-              </div>
-            )}
           </div>
 
           <Separator className="bg-neutral-200" />
@@ -547,69 +560,6 @@ function App() {
                 checked={cardConfig.showAddToCart}
                 onCheckedChange={() => toggleConfig('showAddToCart')}
               />
-            </div>
-          </div>
-
-          <Separator className="bg-neutral-200" />
-
-          {/* Conversation Actions */}
-          <div className="space-y-3">
-            <Label className="text-xs text-neutral-500 uppercase tracking-wide">
-              Conversation
-            </Label>
-            <p className="text-xs text-neutral-500">
-              Conversation persists on reload
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={clearConversation}
-                className="px-3 py-1.5 text-xs bg-white border border-neutral-200 hover:bg-neutral-50 rounded-md transition-colors text-neutral-700"
-              >
-                Clear
-              </button>
-              <button
-                onClick={loadDemoConversation}
-                disabled={productsLoading}
-                className="px-3 py-1.5 text-xs bg-white border border-neutral-200 hover:bg-neutral-50 disabled:opacity-40 rounded-md transition-colors text-neutral-700"
-              >
-                Load Demo
-              </button>
-            </div>
-          </div>
-
-          <Separator className="bg-neutral-200" />
-
-          {/* Product Preview */}
-          <div className="space-y-3">
-            <Label className="text-xs text-neutral-500 uppercase tracking-wide">
-              Product Preview
-            </Label>
-            <p className="text-xs text-neutral-500">
-              Preview products by subcategory
-            </p>
-            <div className="flex gap-2">
-              <Select
-                value={previewSubcategory}
-                onValueChange={(value) => setPreviewSubcategory(value)}
-              >
-                <SelectTrigger className="flex-1 h-8 text-xs bg-white">
-                  <SelectValue placeholder="Select subcategory..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSubcategories.map((subcat) => (
-                    <SelectItem key={subcat} value={subcat} className="text-xs">
-                      {subcat.charAt(0).toUpperCase() + subcat.slice(1)} ({allProducts.filter(p => p.subcategory === subcat).length})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <button
-                onClick={() => previewSubcategory && previewProducts(previewSubcategory)}
-                disabled={!previewSubcategory || productsLoading}
-                className="px-3 py-1.5 text-xs bg-[#2a2a2a] text-white hover:bg-[#3a3a3a] disabled:opacity-40 disabled:cursor-not-allowed rounded-md transition-colors"
-              >
-                Preview
-              </button>
             </div>
           </div>
 

@@ -16,13 +16,15 @@ interface MessageBubbleProps {
 
 export function MessageBubble({ message, cardConfig, layout, cardDesign = 'current', imageRatio = 'portrait', messengerState = 'default', aiReasoningMode = false }: MessageBubbleProps) {
   if (message.role === 'user') {
-    return <UserBubble message={message} />;
+    return <UserBubble message={message} messengerState={messengerState} />;
   }
   return <AgentBubble message={message} cardConfig={cardConfig} layout={layout} cardDesign={cardDesign} imageRatio={imageRatio} messengerState={messengerState} aiReasoningMode={aiReasoningMode} />;
 }
 
-// User message bubble - right aligned, black accent, max-w 280px, 20px radius
-function UserBubble({ message }: { message: UserMessage }) {
+// User message bubble - right aligned, black accent, 20px radius
+// Default: max-w 280px, Expanded: max-w 560px
+function UserBubble({ message, messengerState = 'default' }: { message: UserMessage; messengerState?: MessengerState }) {
+  const maxWidth = messengerState === 'expanded' ? 'max-w-[560px]' : 'max-w-[280px]';
   return (
     <motion.div 
       className="flex justify-end"
@@ -30,7 +32,7 @@ function UserBubble({ message }: { message: UserMessage }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
     >
-      <div className="max-w-[280px] px-4 py-3 rounded-[20px] bg-[#2a2a2a]">
+      <div className={`${maxWidth} px-4 py-3 rounded-[20px] bg-[#2a2a2a]`}>
         <p className="text-sm leading-[1.5] text-white">
           {message.content}
         </p>
@@ -118,9 +120,9 @@ function AgentBubble({
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2 }}
     >
-      {/* Text content - Figma: #f5f5f5, max-w 336px, 20px radius */}
+      {/* Text content - Figma: #f5f5f5, 20px radius. Default: 336px, Expanded: 560px */}
       <motion.div 
-        className="max-w-[336px] px-4 py-3 rounded-[20px]"
+        className={`${messengerState === 'expanded' ? 'max-w-[560px]' : 'max-w-[336px]'} px-4 py-3 rounded-[20px]`}
         style={{ backgroundColor: '#f5f5f5' }}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -195,7 +197,7 @@ function ProductLayout({
 
   // Single product: render directly without carousel wrapper
   if (isSingleProduct) {
-    return <div className="max-w-[336px]">{cards}</div>;
+    return <div>{cards}</div>;
   }
 
   switch (layout) {
