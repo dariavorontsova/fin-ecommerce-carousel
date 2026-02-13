@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Message, UserMessage, AgentMessage } from '../../types/message';
-import { CardConfig, CardLayout } from '../../types/product';
+import { CardConfig, CardLayout, CardDesign, ImageRatio, MessengerState } from '../../types/product';
 import { ProductCard } from '../product/ProductCard';
 import { CarouselLayout, ListLayout, GridLayout } from '../layouts';
 
@@ -8,14 +8,17 @@ interface MessageBubbleProps {
   message: Message;
   cardConfig: CardConfig;
   layout: CardLayout;
+  cardDesign?: CardDesign;
+  imageRatio?: ImageRatio;
+  messengerState?: MessengerState;
   aiReasoningMode?: boolean;
 }
 
-export function MessageBubble({ message, cardConfig, layout, aiReasoningMode = false }: MessageBubbleProps) {
+export function MessageBubble({ message, cardConfig, layout, cardDesign = 'current', imageRatio = 'portrait', messengerState = 'default', aiReasoningMode = false }: MessageBubbleProps) {
   if (message.role === 'user') {
     return <UserBubble message={message} />;
   }
-  return <AgentBubble message={message} cardConfig={cardConfig} layout={layout} aiReasoningMode={aiReasoningMode} />;
+  return <AgentBubble message={message} cardConfig={cardConfig} layout={layout} cardDesign={cardDesign} imageRatio={imageRatio} messengerState={messengerState} aiReasoningMode={aiReasoningMode} />;
 }
 
 // User message bubble - right aligned, black accent, max-w 280px, 20px radius
@@ -87,11 +90,17 @@ function AgentBubble({
   message, 
   cardConfig, 
   layout,
+  cardDesign,
+  imageRatio,
+  messengerState,
   aiReasoningMode,
 }: { 
   message: AgentMessage; 
   cardConfig: CardConfig;
   layout: CardLayout;
+  cardDesign: CardDesign;
+  imageRatio: ImageRatio;
+  messengerState: MessengerState;
   aiReasoningMode: boolean;
 }) {
   // Config panel layout takes precedence for testing purposes
@@ -131,6 +140,9 @@ function AgentBubble({
             products={message.products!}
             layout={effectiveLayout}
             cardConfig={cardConfig}
+            cardDesign={cardDesign}
+            imageRatio={imageRatio}
+            messengerState={messengerState}
             aiReasoningMode={aiReasoningMode}
           />
         </motion.div>
@@ -144,11 +156,17 @@ function ProductLayout({
   products,
   layout,
   cardConfig,
+  cardDesign,
+  imageRatio,
+  messengerState,
   aiReasoningMode,
 }: {
   products: NonNullable<AgentMessage['products']>;
   layout: CardLayout;
   cardConfig: CardConfig;
+  cardDesign: CardDesign;
+  imageRatio: ImageRatio;
+  messengerState: MessengerState;
   aiReasoningMode: boolean;
 }) {
   const isSingleProduct = products.length === 1;
@@ -169,6 +187,8 @@ function ProductLayout({
       product={product} 
       config={cardConfig} 
       variant={cardVariant}
+      cardDesign={cardDesign}
+      imageRatio={imageRatio}
       aiReasoningMode={aiReasoningMode} 
     />
   ));
@@ -184,7 +204,7 @@ function ProductLayout({
     case 'list':
       return <ListLayout>{cards}</ListLayout>;
     case 'grid':
-      return <GridLayout>{cards}</GridLayout>;
+      return <GridLayout messengerState={messengerState}>{cards}</GridLayout>;
     default:
       return <CarouselLayout>{cards}</CarouselLayout>;
   }

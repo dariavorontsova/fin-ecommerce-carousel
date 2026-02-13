@@ -1,13 +1,16 @@
 import { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Message } from '../../types/message';
-import { CardConfig, CardLayout, DEFAULT_CARD_CONFIG } from '../../types/product';
+import { CardConfig, CardLayout, DEFAULT_CARD_CONFIG, CardDesign, ImageRatio, MessengerState } from '../../types/product';
 import { MessageBubble } from './MessageBubble';
 
 interface MessengerThreadProps {
   messages: Message[];
   cardConfig?: CardConfig;
   layout?: CardLayout;
+  cardDesign?: CardDesign;
+  imageRatio?: ImageRatio;
+  messengerState?: MessengerState;
   isLoading?: boolean;
   aiReasoningMode?: boolean;
 }
@@ -32,6 +35,9 @@ export function MessengerThread({
   messages, 
   cardConfig = DEFAULT_CARD_CONFIG,
   layout = 'carousel',
+  cardDesign = 'current',
+  imageRatio = 'portrait',
+  messengerState = 'default',
   isLoading = false,
   aiReasoningMode = false,
 }: MessengerThreadProps) {
@@ -58,6 +64,9 @@ export function MessengerThread({
                 message={message}
                 cardConfig={cardConfig}
                 layout={layout}
+                cardDesign={cardDesign}
+                imageRatio={imageRatio}
+                messengerState={messengerState}
                 aiReasoningMode={aiReasoningMode}
               />
             ))}

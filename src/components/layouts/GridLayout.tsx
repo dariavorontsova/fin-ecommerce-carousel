@@ -1,19 +1,24 @@
 import { ReactNode, Children } from 'react';
 import { motion } from 'framer-motion';
+import { MessengerState } from '../../types/product';
 
 interface GridLayoutProps {
   children: ReactNode;
   columns?: 2 | 3;
   gap?: number;
   maxItems?: number;
+  messengerState?: MessengerState;
 }
 
 export function GridLayout({ 
   children, 
-  columns = 2,
+  columns,
   gap = 12,
-  maxItems 
+  maxItems,
+  messengerState = 'default',
 }: GridLayoutProps) {
+  // Auto-determine columns: 2 for default, 3 for expanded
+  const effectiveColumns = columns ?? (messengerState === 'expanded' ? 3 : 2);
   // Convert children to array and optionally limit
   const childArray = Children.toArray(children);
   const displayChildren = maxItems ? childArray.slice(0, maxItems) : childArray;
@@ -22,7 +27,7 @@ export function GridLayout({
   return (
     <div>
       <div 
-        className={`grid ${columns === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}
+        className={`grid ${effectiveColumns === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}
         style={{ gap: `${gap}px` }}
       >
         {displayChildren.map((child, index) => (

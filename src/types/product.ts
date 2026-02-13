@@ -136,6 +136,21 @@ export interface CardConfig {
 export type CardLayout = 'carousel' | 'list' | 'grid';
 export type MessengerState = 'default' | 'expanded';
 
+// Card design variants
+export type CardDesign = 'current' | 'proposed' | 'borderless';
+
+// Image ratio options for grid cards
+// Landscape: height = width × 0.75 (4:3)
+// Square: height = width × 1.0 (1:1)
+// Portrait: height = width × 1.333 (3:4)
+export type ImageRatio = 'landscape' | 'square' | 'portrait';
+
+export const IMAGE_RATIO_VALUES: Record<ImageRatio, string> = {
+  landscape: '4 / 3',
+  square: '1 / 1',
+  portrait: '3 / 4',
+};
+
 // Default card configuration
 export const DEFAULT_CARD_CONFIG: CardConfig = {
   showImage: true,

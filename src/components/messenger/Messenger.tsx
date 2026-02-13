@@ -2,7 +2,7 @@ import { MessengerHeader } from './MessengerHeader';
 import { MessengerComposer } from './MessengerComposer';
 import { MessengerThread } from './MessengerThread';
 import { Message } from '../../types/message';
-import { CardConfig, CardLayout, DEFAULT_CARD_CONFIG } from '../../types/product';
+import { CardConfig, CardLayout, DEFAULT_CARD_CONFIG, CardDesign, ImageRatio } from '../../types/product';
 
 export type MessengerState = 'default' | 'expanded';
 
@@ -11,6 +11,8 @@ interface MessengerProps {
   messages?: Message[];
   cardConfig?: CardConfig;
   layout?: CardLayout;
+  cardDesign?: CardDesign;
+  imageRatio?: ImageRatio;
   isLoading?: boolean;
   aiReasoningMode?: boolean;
   onSend?: (message: string) => void;
@@ -24,6 +26,8 @@ export function Messenger({
   messages = [],
   cardConfig = DEFAULT_CARD_CONFIG,
   layout = 'carousel',
+  cardDesign = 'current',
+  imageRatio = 'portrait',
   isLoading = false,
   aiReasoningMode = false,
   onSend,
@@ -61,6 +65,9 @@ export function Messenger({
           messages={messages}
           cardConfig={cardConfig}
           layout={layout}
+          cardDesign={cardDesign}
+          imageRatio={imageRatio}
+          messengerState={state}
           isLoading={isLoading}
           aiReasoningMode={aiReasoningMode}
         />

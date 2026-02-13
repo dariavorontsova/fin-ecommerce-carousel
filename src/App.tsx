@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Messenger } from './components/messenger';
-import { CardConfig, DEFAULT_CARD_CONFIG, CardLayout, MessengerState, Product } from './types/product';
+import { CardConfig, DEFAULT_CARD_CONFIG, CardLayout, MessengerState, Product, CardDesign, ImageRatio } from './types/product';
 import { Message, createUserMessage, createAgentMessage, LLMDecision } from './types/message';
 import { getAllProducts } from './data/products';
 import {
@@ -92,15 +92,18 @@ function clearSavedConversation() {
 
 function App() {
   const [messengerState, setMessengerState] = useState<MessengerState>('default');
-  const [cardLayout, setCardLayout] = useState<CardLayout>('carousel');
+  const [cardLayout, setCardLayout] = useState<CardLayout>('grid');
+  const [cardDesign, setCardDesign] = useState<CardDesign>('current');
+  const [imageRatio, setImageRatio] = useState<ImageRatio>('portrait');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [aiReasoningMode, setAiReasoningMode] = useState(false); // Default OFF
   const [cardConfig, setCardConfig] = useState<CardConfig>({
     ...DEFAULT_CARD_CONFIG,
     showPrice: true,
-    showRating: true,
+    showRating: false,
     showDescription: true,
+    showAddToCart: true,
     showViewDetailsLarge: false,
   });
   const [allProducts, setAllProducts] = useState<Product[]>([]);
@@ -409,26 +412,38 @@ function App() {
 
           <Separator className="bg-neutral-200" />
 
-          {/* Card Content Mode */}
+          {/* Card Design Selector */}
           <div className="space-y-3">
             <Label className="text-xs text-neutral-500 uppercase tracking-wide">
-              Card Content
+              Card Design
             </Label>
-            <div className="flex items-center justify-between">
-              <div className="flex-1 pr-4">
-                <Label htmlFor="aiReasoning" className="text-sm font-medium text-neutral-900 cursor-pointer block">
-                  AI Reasoning on Cards
-                </Label>
-                <p className="text-xs text-neutral-500 mt-0.5">
-                  Show why each product matches instead of generic metadata
-                </p>
-              </div>
-              <Switch
-                id="aiReasoning"
-                checked={aiReasoningMode}
-                onCheckedChange={setAiReasoningMode}
-              />
-            </div>
+            <Select value={cardDesign} onValueChange={(v) => setCardDesign(v as CardDesign)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="current">(v1) Current</SelectItem>
+                <SelectItem value="proposed">(v2) Minor changes</SelectItem>
+                <SelectItem value="borderless" disabled>(v3) Borderless</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Image Ratio Selector */}
+          <div className="space-y-3">
+            <Label className="text-xs text-neutral-500 uppercase tracking-wide">
+              Image Ratio
+            </Label>
+            <Select value={imageRatio} onValueChange={(v) => setImageRatio(v as ImageRatio)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="landscape">Landscape (4:3)</SelectItem>
+                <SelectItem value="square">Square (1:1)</SelectItem>
+                <SelectItem value="portrait">Portrait (3:4)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <Separator className="bg-neutral-200" />
@@ -482,57 +497,57 @@ function App() {
 
           <Separator className="bg-neutral-200" />
 
-          {/* Metadata Toggles */}
-          <div className={`space-y-3 ${aiReasoningMode ? 'opacity-40 pointer-events-none' : ''}`}>
-            <Label className="text-xs text-neutral-500 uppercase tracking-wide">
-              Card Metadata {aiReasoningMode && <span className="normal-case">(disabled in AI mode)</span>}
-            </Label>
-            {[
-              { key: 'showImage', label: 'Image', listOnly: true },
-              { key: 'showPrice', label: 'Price', listOnly: false },
-              { key: 'showRating', label: 'Rating', listOnly: false },
-              { key: 'showDescription', label: 'Description', listOnly: false },
-              { key: 'showVariants', label: 'Variants', listOnly: false },
-            ]
-              .filter(({ listOnly }) => !listOnly || cardLayout === 'list')
-              .map(({ key, label }) => (
-              <div key={key} className="flex items-center justify-between">
-                <Label htmlFor={key} className="text-sm font-normal text-neutral-700 cursor-pointer">
-                  {label}
-                </Label>
-                <Switch
-                  id={key}
-                  checked={cardConfig[key as keyof CardConfig]}
-                  onCheckedChange={() => toggleConfig(key as keyof CardConfig)}
-                  disabled={aiReasoningMode}
-                />
-              </div>
-            ))}
-          </div>
-
-          <Separator className="bg-neutral-200" />
-
-          {/* CTA Toggles */}
+          {/* Card Details Toggles */}
           <div className="space-y-3">
             <Label className="text-xs text-neutral-500 uppercase tracking-wide">
-              Call-to-Actions
+              Card Details
             </Label>
-            {[
-              { key: 'showViewDetailsLarge', label: 'View Details (Button)' },
-              { key: 'showViewDetailsCompact', label: 'View Details (Icon)' },
-              { key: 'showAddToCart', label: 'Add to Cart' },
-            ].map(({ key, label }) => (
-              <div key={key} className="flex items-center justify-between">
-                <Label htmlFor={key} className="text-sm font-normal text-neutral-700 cursor-pointer">
-                  {label}
-                </Label>
-                <Switch
-                  id={key}
-                  checked={cardConfig[key as keyof CardConfig]}
-                  onCheckedChange={() => toggleConfig(key as keyof CardConfig)}
-                />
-              </div>
-            ))}
+            {/* AI Reasoning Toggle */}
+            <div className="flex items-center justify-between">
+              <Label htmlFor="aiReasoning" className="text-sm font-normal text-neutral-700 cursor-pointer">
+                AI Reasoning
+              </Label>
+              <Switch
+                id="aiReasoning"
+                checked={aiReasoningMode}
+                onCheckedChange={setAiReasoningMode}
+              />
+            </div>
+            {/* Other metadata toggles */}
+            <div className={`space-y-3 ${aiReasoningMode ? 'opacity-40 pointer-events-none' : ''}`}>
+              {[
+                { key: 'showImage', label: 'Image', listOnly: true },
+                { key: 'showPrice', label: 'Price', listOnly: false },
+                { key: 'showRating', label: 'Rating', listOnly: false },
+                { key: 'showDescription', label: 'Description', listOnly: false },
+                { key: 'showVariants', label: 'Variants', listOnly: false },
+              ]
+                .filter(({ listOnly }) => !listOnly || cardLayout === 'list')
+                .map(({ key, label }) => (
+                <div key={key} className="flex items-center justify-between">
+                  <Label htmlFor={key} className="text-sm font-normal text-neutral-700 cursor-pointer">
+                    {label}
+                  </Label>
+                  <Switch
+                    id={key}
+                    checked={cardConfig[key as keyof CardConfig]}
+                    onCheckedChange={() => toggleConfig(key as keyof CardConfig)}
+                    disabled={aiReasoningMode}
+                  />
+                </div>
+              ))}
+            </div>
+            {/* Add to Cart - always available regardless of AI reasoning */}
+            <div className="flex items-center justify-between">
+              <Label htmlFor="showAddToCart" className="text-sm font-normal text-neutral-700 cursor-pointer">
+                Add to Cart
+              </Label>
+              <Switch
+                id="showAddToCart"
+                checked={cardConfig.showAddToCart}
+                onCheckedChange={() => toggleConfig('showAddToCart')}
+              />
+            </div>
           </div>
 
           <Separator className="bg-neutral-200" />
@@ -598,99 +613,6 @@ function App() {
             </div>
           </div>
 
-          <Separator className="bg-neutral-200" />
-
-          {/* Live Search (HuggingFace) */}
-          <div className="space-y-3">
-            <Label className="text-xs text-neutral-500 uppercase tracking-wide">
-              Live Search (HuggingFace)
-            </Label>
-            <p className="text-xs text-neutral-500">
-              On-demand search from ~30K products. First search fetches catalog (~3s).
-            </p>
-            <div className="flex gap-2">
-              <Input
-                value={liveSearchQuery}
-                onChange={(e) => setLiveSearchQuery(e.target.value)}
-                placeholder="jacket, boots, dress..."
-                className="flex-1 h-8 text-xs"
-                onKeyDown={(e) => e.key === 'Enter' && handleLiveSearch()}
-              />
-              <button
-                onClick={handleLiveSearch}
-                disabled={liveSearching || !liveSearchQuery.trim()}
-                className="px-3 py-1.5 text-xs bg-[#2a2a2a] text-white hover:bg-[#3a3a3a] disabled:opacity-40 disabled:cursor-not-allowed rounded-md transition-colors min-w-[60px]"
-              >
-                {liveSearching ? '...' : 'Search'}
-              </button>
-            </div>
-            {lastSearchResult && (
-              <div className="text-xs text-neutral-500 bg-neutral-50 p-2 rounded">
-                Last: {lastSearchResult.totalMatches} matches in {lastSearchResult.searchTime}ms 
-                {lastSearchResult.fromCache ? ' (cached)' : ' (fetched)'} 
-                {isCached() && ' • Catalog cached'}
-              </div>
-            )}
-          </div>
-
-          <Separator className="bg-neutral-200" />
-
-          {/* AI Status */}
-          <div className={`p-3 rounded-lg border ${llmConfigured ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
-            <div className={`font-medium text-sm ${llmConfigured ? 'text-green-800' : 'text-amber-800'}`}>
-              {llmConfigured ? '🟢 LLM Mode' : '🟡 Mock Mode'}
-            </div>
-            <div className={`text-xs mt-1 ${llmConfigured ? 'text-green-700' : 'text-amber-700'}`}>
-              {llmConfigured 
-                ? 'Using GPT-4o for intent detection'
-                : 'Add VITE_OPENAI_API_KEY to .env for LLM mode'
-              }
-            </div>
-            {lastResponse && (
-              <div className="text-xs mt-2 pt-2 border-t border-current/20">
-                <span className="opacity-70">Last response: </span>
-                <span className="font-mono">{Math.round(lastResponse.latency.total)}ms</span>
-              </div>
-            )}
-          </div>
-
-          {/* Session State Debug */}
-          <div className="p-3 rounded-lg border bg-slate-50 border-slate-200">
-            <div className="font-medium text-sm text-slate-800 mb-2">Session State</div>
-            <div className="text-xs space-y-1">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Mode:</span>
-                <span className={`font-mono px-1.5 py-0.5 rounded ${
-                  sessionState.conversationMode === 'support' ? 'bg-orange-100 text-orange-700' :
-                  sessionState.conversationMode === 'shopping' ? 'bg-blue-100 text-blue-700' :
-                  'bg-gray-100 text-gray-600'
-                }`}>
-                  {sessionState.conversationMode}
-                </span>
-              </div>
-              {sessionState.supportContext && (
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Support:</span>
-                  <span className="font-mono text-orange-600">
-                    {sessionState.supportContext.issueType}
-                    {sessionState.supportContext.resolved ? ' ✓' : ' (active)'}
-                  </span>
-                </div>
-              )}
-              {sessionState.shoppingContext && (
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Shopping:</span>
-                  <span className="font-mono text-blue-600 truncate ml-2 max-w-[120px]" title={sessionState.shoppingContext.query}>
-                    {sessionState.shoppingContext.subcategory}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-slate-500">Products shown:</span>
-                <span className="font-mono text-slate-600">{sessionState.productsShownThisSession.length}</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -859,6 +781,8 @@ function App() {
           messages={messages}
           cardConfig={cardConfig}
           layout={cardLayout}
+          cardDesign={cardDesign}
+          imageRatio={imageRatio}
           isLoading={isLoading || productsLoading}
           aiReasoningMode={aiReasoningMode}
           onSend={handleSend}

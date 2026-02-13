@@ -1,10 +1,14 @@
-import { Product, CardConfig, DEFAULT_CARD_CONFIG } from '../../types/product';
+import React from 'react';
+import { motion } from 'framer-motion';
+import { Product, CardConfig, DEFAULT_CARD_CONFIG, CardDesign, ImageRatio, IMAGE_RATIO_VALUES } from '../../types/product';
 import { ImageGallery } from './ImageGallery';
 
 interface ProductCardProps {
   product: Product;
   config?: Partial<CardConfig>;
   variant?: 'default' | 'compact' | 'list' | 'single';
+  cardDesign?: CardDesign;
+  imageRatio?: ImageRatio;
   aiReasoningMode?: boolean;
   onClick?: (product: Product) => void;
 }
@@ -13,6 +17,8 @@ export function ProductCard({
   product, 
   config: configOverride,
   variant = 'default',
+  cardDesign = 'current',
+  imageRatio = 'portrait',
   aiReasoningMode = false,
   onClick 
 }: ProductCardProps) {
@@ -51,17 +57,19 @@ export function ProductCard({
   // Card hover shadow - Figma: two drop shadows
   const hoverShadow = '0px 1px 4px rgba(9, 14, 21, 0.06), 0px 4px 28px rgba(9, 14, 21, 0.06)';
 
+  // Image aspect ratio:
+  // - Grid cards (default variant): controlled by imageRatio selector
+  // - Single cards: keep their own sizing
+  // - Compact/carousel: keep their own sizing
+  const gridAspectRatio = IMAGE_RATIO_VALUES[imageRatio];
+
   // AI Reasoning Mode - Figma spec
   if (aiReasoningMode) {
     const isCompactMode = variant === 'compact';
     const isSingleMode = variant === 'single';
     
-    // Debug logging
-    console.log('[ProductCard] Rendering:', product.name, { variant, isSingleMode, hasImages: !!product.images, imageCount: product.images?.length });
-    
-    // Single mode: 256px width (20% smaller than 320), same 1:1 aspect ratio as carousel
+    // Single mode: 256px width (20% smaller than 320)
     const cardWidth = isSingleMode ? 'w-[256px] max-w-[256px]' : isCompactMode ? 'w-[200px] min-w-[200px]' : 'w-full';
-    const imageAspect = '1 / 1'; // Same aspect ratio for all cards
     
     return (
       <div 
@@ -76,19 +84,27 @@ export function ProductCard({
       >
         {/* Image - gallery for single with multiple images, otherwise single image */}
         {isSingleMode && product.images && product.images.length > 1 ? (
-          <ImageGallery 
-            images={product.images} 
-            alt={product.name}
-            aspectRatio={imageAspect}
-          />
+          <div className="relative">
+            <ImageGallery 
+              images={product.images} 
+              alt={product.name}
+              aspectRatio={gridAspectRatio}
+            />
+            {config.showAddToCart && (
+              <AddToCartButton productId={product.id} />
+            )}
+          </div>
         ) : (
-          <div className="relative w-full overflow-hidden" style={{ aspectRatio: imageAspect }}>
+          <div className="relative w-full overflow-hidden" style={{ aspectRatio: gridAspectRatio }}>
             <img 
               src={product.image} 
               alt={product.name}
               className="w-full h-full object-cover"
               style={{ objectPosition: 'top center' }}
             />
+            {config.showAddToCart && (
+              <AddToCartButton productId={product.id} />
+            )}
           </div>
         )}
 
@@ -120,6 +136,122 @@ export function ProductCard({
         </div>
       </div>
     );
+  }
+
+  // Proposed Design - Figma "Proposed" variant
+  if (cardDesign === 'proposed') {
+    const isCompact = variant === 'compact';
+    const isSingle = variant === 'single';
+    const isList = variant === 'list';
+
+    // Skip list variant - proposed design is only for carousel/grid
+    if (isList) {
+      // Fall through to default list rendering below
+    } else {
+      // Determine width based on variant - S size for compact, M size for single/default
+      const widthClass = isCompact ? 'w-[180px] min-w-[180px]' : isSingle ? 'w-[210px] max-w-[210px]' : 'w-full';
+      // Grid cards use the imageRatio selector; single/compact keep their own
+      const imageAspectRatio = (variant === 'default') ? gridAspectRatio : '3 / 4';
+
+      return (
+        <div
+          className={`bg-white overflow-clip cursor-pointer flex-shrink-0 transition-shadow ${widthClass}`}
+          style={{
+            border: '1px solid rgba(9, 14, 21, 0.1)',
+            borderRadius: '20px',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.boxShadow = hoverShadow}
+          onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
+          onClick={handleClick}
+        >
+          {/* Image Container with CTA button */}
+          <div className="relative w-full" style={{ aspectRatio: imageAspectRatio }}>
+            {config.showImage && (
+              <img
+                src={product.image}
+                alt={product.name}
+                className="w-full h-full object-cover"
+                style={{ objectPosition: 'top center' }}
+              />
+            )}
+
+            {/* Add to Cart CTA - anchored bottom-right, expands left on button hover */}
+            {config.showAddToCart && (
+              <AddToCartButton productId={product.id} />
+            )}
+          </div>
+
+          {/* Content - Figma: px-16, py-14 */}
+          <div style={{ padding: '14px 16px' }}>
+            <div className="flex flex-col" style={{ gap: config.showDescription ? '8px' : '2px' }}>
+              {/* Title + Description block */}
+              <div className="flex flex-col" style={{ gap: '2px' }}>
+                {config.showTitle && (
+                  <p
+                    className="truncate"
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 400, // Regular font, not bold
+                      lineHeight: '1.5',
+                      color: '#14161a',
+                    }}
+                  >
+                    {product.name}
+                  </p>
+                )}
+
+                {config.showDescription && (
+                  <p
+                    className="line-clamp-2 overflow-hidden"
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 400,
+                      lineHeight: '16px',
+                      color: '#6c6f74',
+                    }}
+                  >
+                    {product.description}
+                  </p>
+                )}
+              </div>
+
+              {/* Price + Rating row */}
+              <div className="flex items-center gap-2">
+                {config.showPrice && (
+                  <span
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      lineHeight: '1.5',
+                      color: '#090e15',
+                    }}
+                  >
+                    {formatPrice(product.price)}
+                  </span>
+                )}
+
+                {config.showRating && (
+                  <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-0.5">
+                      {/* Star icon - inline SVG with same color as text */}
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path 
+                          d="M6 1L7.545 4.13L11 4.635L8.5 7.07L9.09 10.51L6 8.885L2.91 10.51L3.5 7.07L1 4.635L4.455 4.13L6 1Z" 
+                          fill="#6c6f74"
+                        />
+                      </svg>
+                      <span style={{ fontSize: '13px', fontWeight: 600, lineHeight: '1.5', color: '#6c6f74' }}>
+                        {product.rating}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
   }
 
   // List variant layout
@@ -217,8 +349,8 @@ export function ProductCard({
   
   // Determine width class - single cards are 256px (20% smaller than 320)
   const widthClass = isSingle ? 'w-[256px] max-w-[256px]' : isCompact ? 'flex-shrink-0 w-[200px] min-w-[200px]' : 'w-full';
-  // Same 1:1 aspect ratio for all cards
-  const imageAspectRatio = '1 / 1';
+  // Grid cards use the imageRatio selector; single/compact keep 1:1
+  const imageAspectRatio = (variant === 'default') ? gridAspectRatio : '1 / 1';
   
   return (
     <div 
@@ -259,6 +391,9 @@ export function ProductCard({
               </span>
             </div>
           )}
+          {config.showAddToCart && (
+            <AddToCartButton productId={product.id} />
+          )}
         </div>
       ) : (
         <div className="relative w-full" style={{ aspectRatio: imageAspectRatio }}>
@@ -279,9 +414,9 @@ export function ProductCard({
               top: '12px',
               left: '12px',
               height: '24px',
-              padding: '3px 6px 2px 6px', // Slightly more top padding for visual balance
+              padding: '3px 6px 2px 6px',
               borderRadius: '8px',
-              backgroundColor: 'rgba(9, 14, 21, 0.4)', // 40% opacity
+              backgroundColor: 'rgba(9, 14, 21, 0.4)',
               backdropFilter: 'blur(20px)',
             }}
           >
@@ -309,6 +444,10 @@ export function ProductCard({
                 {badge.text}
               </span>
             </div>
+          )}
+
+          {config.showAddToCart && (
+            <AddToCartButton productId={product.id} />
           )}
         </div>
       )}
@@ -368,26 +507,6 @@ export function ProductCard({
           )}
         </div>
 
-        {/* Large CTA Button */}
-        {config.showViewDetailsLarge && (
-          <button 
-            className="w-full mt-4 py-2 text-sm border rounded-lg hover:bg-neutral-50 transition-colors"
-            style={{ color: '#14161a', borderColor: 'rgba(9, 14, 21, 0.1)' }}
-            onClick={(e) => { e.stopPropagation(); handleClick(); }}
-          >
-            View details
-          </button>
-        )}
-
-        {/* Add to Cart CTA */}
-        {config.showAddToCart && (
-          <button 
-            className="w-full mt-2 py-2 text-sm text-white bg-[#2a2a2a] rounded-lg hover:bg-[#3a3a3a] transition-colors"
-            onClick={(e) => { e.stopPropagation(); console.log('Add to cart:', product.id); }}
-          >
-            Add to cart
-          </button>
-        )}
       </div>
     </div>
   );
@@ -452,4 +571,68 @@ function generateMockReasoning(product: Product): string {
   // Use product ID to get consistent reasoning for the same product
   const index = parseInt(product.id.replace(/\D/g, ''), 10) % categoryReasonings.length;
   return categoryReasonings[index];
+}
+
+// Add to Cart button with expand-on-hover animation
+// Figma: 48w x 40h default, expands left to show label on hover
+function AddToCartButton({ productId }: { productId: string }) {
+  const [isHovered, setIsHovered] = React.useState(false);
+
+  return (
+    <motion.button
+      className="absolute bottom-[12px] right-[12px] flex items-center cursor-pointer"
+      style={{
+        height: '40px',
+        borderRadius: '9999px',
+        backgroundColor: 'white',
+        backdropFilter: 'blur(50px)',
+        boxShadow: '0px 1px 3px 0px rgba(9, 14, 21, 0.2)',
+        padding: '8px 12px',
+        overflow: 'hidden',
+        border: 'none',
+        outline: 'none',
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={(e) => {
+        e.stopPropagation();
+        console.log('Add to cart:', productId);
+      }}
+    >
+      <motion.div
+        className="flex items-center"
+        style={{ gap: '8px' }}
+      >
+        {/* Label - to the left of icon, clips when collapsed */}
+        <motion.span
+          initial={false}
+          animate={{
+            width: isHovered ? 'auto' : 0,
+            opacity: isHovered ? 1 : 0,
+            marginRight: isHovered ? 0 : -8,
+          }}
+          transition={{
+            type: 'spring',
+            stiffness: 400,
+            damping: 30,
+          }}
+          style={{
+            fontSize: '14px',
+            fontWeight: 600,
+            lineHeight: '1.5',
+            color: '#14161a',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            display: 'inline-block',
+          }}
+        >
+          Add to cart
+        </motion.span>
+        {/* Icon - stays in place on the right */}
+        <div className="shrink-0 w-[24px] h-[24px]">
+          <img src="/icons/add-to-card.svg" alt="Add to cart" width="24" height="24" />
+        </div>
+      </motion.div>
+    </motion.button>
+  );
 }
