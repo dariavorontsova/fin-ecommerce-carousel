@@ -408,7 +408,19 @@ function App() {
             <Label className="text-xs text-neutral-500 uppercase tracking-wide">
               Card Design
             </Label>
-            <Select value={cardDesign} onValueChange={(v) => setCardDesign(v as CardDesign)}>
+            <Select value={cardDesign} onValueChange={(v) => {
+              const design = v as CardDesign;
+              setCardDesign(design);
+              // Set default toggle states per card design
+              if (design === 'borderless') {
+                setCardConfig(prev => ({ ...prev, showPrice: true, showDescription: true, showAddToCart: true, showRating: false }));
+              } else if (design === 'proposed') {
+                setCardConfig(prev => ({ ...prev, showPrice: true, showDescription: true, showAddToCart: true, showRating: false }));
+              } else {
+                // v1 Current defaults
+                setCardConfig(prev => ({ ...prev, showPrice: true, showDescription: true, showAddToCart: false, showRating: false }));
+              }
+            }}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>

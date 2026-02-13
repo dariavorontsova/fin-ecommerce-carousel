@@ -118,30 +118,27 @@ export function ImageGallery({ images, alt, aspectRatio = '1 / 1' }: ImageGaller
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
     >
-      {/* All images stacked, only current one visible - smoother than AnimatePresence */}
+      {/* All images stacked, smooth crossfade between them */}
       {images.map((src, index) => (
         <motion.img
           key={index}
           src={src}
           alt={`${alt} - view ${index + 1}`}
           className="absolute inset-0 w-full h-full object-cover"
-          style={{ objectPosition: 'top center' }}
+          style={{ 
+            objectPosition: 'top center',
+            zIndex: index === currentIndex ? 2 : 1,
+          }}
           initial={false}
-          animate={{ 
-            opacity: index === currentIndex ? 1 : 0,
-            scale: index === currentIndex ? 1 : 1.02,
-          }}
-          transition={{ 
-            duration: 0.3, 
-            ease: [0.4, 0, 0.2, 1]
-          }}
+          animate={{ opacity: index === currentIndex ? 1 : 0 }}
+          transition={{ duration: 0.5, ease: 'easeInOut' }}
         />
       ))}
 
       {/* Page indicator - no background, adaptive dot color, bottom-aligned with CTA at 12px */}
       <div 
         className="absolute left-1/2 -translate-x-1/2 flex items-end gap-1.5"
-        style={{ bottom: '12px' }}
+        style={{ bottom: '12px', zIndex: 3 }}
       >
         {images.map((_, index) => (
           <button

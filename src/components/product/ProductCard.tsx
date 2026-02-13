@@ -774,6 +774,7 @@ function AddToCartButton({ productId }: { productId: string }) {
         overflow: 'hidden',
         border: 'none',
         outline: 'none',
+        zIndex: 4,
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

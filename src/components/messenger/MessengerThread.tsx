@@ -58,6 +58,11 @@ export function MessengerThread({
     prevFirstMessageId.current = firstId;
   }, [messages]);
 
+  // Scroll to top when display settings change (card design, layout, etc.)
+  useEffect(() => {
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [cardDesign, layout, imageRatio]);
+
   const isEmpty = messages.length === 0;
 
   return (
