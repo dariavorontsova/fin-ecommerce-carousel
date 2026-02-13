@@ -87,6 +87,7 @@ function App() {
   const [cardLayout, setCardLayout] = useState<CardLayout>('grid');
   const [cardDesign, setCardDesign] = useState<CardDesign>('current');
   const [imageRatio, setImageRatio] = useState<ImageRatio>('portrait');
+  const [selectedStore, setSelectedStore] = useState<ImageRatio>('portrait');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [aiReasoningMode, setAiReasoningMode] = useState(false); // Default OFF
@@ -305,7 +306,9 @@ function App() {
 
   const loadDemoConversation = () => {
     if (demoMode) {
-      setMessages(buildDemoMessages(imageRatio, cardLayout));
+      // Apply the selected store's ratio and load the demo
+      setImageRatio(selectedStore);
+      setMessages(buildDemoMessages(selectedStore, cardLayout));
     } else if (allProducts.length > 0) {
       setMessages(createDemoConversation(allProducts));
     }
@@ -339,8 +342,8 @@ function App() {
               Demo Store
             </Label>
             <div className="flex gap-2">
-              <Select value={imageRatio} onValueChange={(v) => {
-                setImageRatio(v as ImageRatio);
+              <Select value={selectedStore} onValueChange={(v) => {
+                setSelectedStore(v as ImageRatio);
               }}>
                 <SelectTrigger className="flex-1">
                   <SelectValue />

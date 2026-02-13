@@ -38,8 +38,7 @@ export function ProductCard({
     }).format(price);
   };
 
-  // Compact price format (same as formatPrice now)
-  const formatPriceCompact = formatPrice;
+  // (formatPriceCompact removed — was only used in old AI reasoning block)
 
   // Get badge info - using consistent frosted glass style
   const getBadge = () => {
@@ -64,80 +63,8 @@ export function ProductCard({
   const gridAspectRatio = IMAGE_RATIO_VALUES[imageRatio];
   const singleAspectRatio = imageRatio === 'portrait' ? '1 / 1' : gridAspectRatio;
 
-  // AI Reasoning Mode - Figma spec
-  if (aiReasoningMode) {
-    const isCompactMode = variant === 'compact';
-    const isSingleMode = variant === 'single';
-    
-    // Single mode: 340px width with square image
-    const cardWidth = isSingleMode ? 'w-[340px] max-w-[340px]' : isCompactMode ? 'w-[200px] min-w-[200px]' : 'w-full';
-    
-    return (
-      <div 
-        className={`bg-white overflow-clip cursor-pointer flex-shrink-0 transition-shadow ${cardWidth}`}
-        style={{
-          border: '1px solid rgba(9, 14, 21, 0.1)',
-          borderRadius: '20px',
-        }}
-        onMouseEnter={(e) => e.currentTarget.style.boxShadow = hoverShadow}
-        onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
-        onClick={handleClick}
-      >
-        {/* Image - gallery for single with multiple images, otherwise single image */}
-        {isSingleMode && product.images && product.images.length > 1 ? (
-          <div className="relative">
-            <ImageGallery 
-              images={product.images} 
-              alt={product.name}
-              aspectRatio={gridAspectRatio}
-            />
-            {config.showAddToCart && (
-              <AddToCartButton productId={product.id} />
-            )}
-          </div>
-        ) : (
-          <div className="relative w-full overflow-hidden" style={{ aspectRatio: gridAspectRatio }}>
-            <img 
-              src={product.image} 
-              alt={product.name}
-              className="w-full h-full object-cover"
-              style={{ objectPosition: 'top center' }}
-            />
-            {config.showAddToCart && (
-              <AddToCartButton productId={product.id} />
-            )}
-          </div>
-        )}
-
-        {/* Content - Figma: px-16, pt-14, pb-16, gap-12 */}
-        <div className="flex flex-col justify-between" style={{ padding: '14px 16px 16px 16px' }}>
-          {/* AI-generated pitch - 14px, line-height 1.3, #14161a, max 3 lines */}
-          {/* Fixed height (3 lines * 14px * 1.3 = ~55px) ensures price alignment across cards */}
-          <p 
-            className="overflow-hidden line-clamp-3 mb-3"
-            style={{ 
-              fontSize: '14px', 
-              lineHeight: '1.3', 
-              color: '#14161a',
-              minHeight: '55px', // 3 lines worth of height for consistent alignment
-            }}
-          >
-            {product.aiReasoning || generateMockReasoning(product)}
-          </p>
-          
-          {/* Price + Name row - 13px, #6c6f74 - always at bottom */}
-          <div 
-            className="flex items-start gap-1"
-            style={{ fontSize: '13px', lineHeight: '1.5', color: '#6c6f74' }}
-          >
-            <span className="shrink-0">{formatPriceCompact(product.price)}</span>
-            <span className="shrink-0">•</span>
-            <span className="truncate flex-1 min-w-0">{product.name}</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // AI Reasoning: the text to show in place of the title
+  const aiReasoningText = product.aiReasoning || generateMockReasoning(product);
 
   // Proposed Design - Figma "Proposed" variant
   if (cardDesign === 'proposed') {
@@ -197,24 +124,24 @@ export function ProductCard({
 
           {/* Content - Figma: px-16, py-14 */}
           <div style={{ padding: '14px 16px' }}>
-            <div className="flex flex-col" style={{ gap: config.showDescription ? '8px' : '2px' }}>
-              {/* Title + Description block */}
+            <div className="flex flex-col" style={{ gap: aiReasoningMode ? '4px' : (config.showDescription ? '8px' : '2px') }}>
+              {/* Title + Description block (or AI reasoning replacing title) */}
               <div className="flex flex-col" style={{ gap: '2px' }}>
                 {config.showTitle && (
                   <p
-                    className="truncate"
+                    className={aiReasoningMode ? 'line-clamp-3' : 'truncate'}
                     style={{
                       fontSize: '14px',
-                      fontWeight: 400, // Regular font, not bold
-                      lineHeight: '1.5',
+                      fontWeight: 400,
+                      lineHeight: aiReasoningMode ? '1.3' : '1.5',
                       color: '#14161a',
                     }}
                   >
-                    {product.name}
+                    {aiReasoningMode ? aiReasoningText : product.name}
                   </p>
                 )}
 
-                {config.showDescription && (
+                {!aiReasoningMode && config.showDescription && (
                   <p
                     className="line-clamp-2 overflow-hidden"
                     style={{
@@ -244,10 +171,9 @@ export function ProductCard({
                   </span>
                 )}
 
-                {config.showRating && (
+                {!aiReasoningMode && config.showRating && (
                   <div className="flex items-center gap-1">
                     <div className="flex items-center gap-0.5">
-                      {/* Star icon - inline SVG with same color as text */}
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path 
                           d="M6 1L7.545 4.13L11 4.635L8.5 7.07L9.09 10.51L6 8.885L2.91 10.51L3.5 7.07L1 4.635L4.455 4.13L6 1Z" 
@@ -314,7 +240,7 @@ export function ProductCard({
                 className="absolute inset-0 pointer-events-none"
                 style={{
                   borderRadius: '20px',
-                  boxShadow: isHovered ? 'inset 0 0 0 1px rgba(9, 14, 21, 0.2)' : 'none',
+                  boxShadow: isHovered ? 'inset 0 0 0 1px rgba(9, 14, 21, 0.2)' : 'inset 0 0 0 1px rgba(9, 14, 21, 0.08)',
                   transition: 'box-shadow 0.15s ease-out',
                   zIndex: 5,
                 }}
@@ -341,12 +267,12 @@ export function ProductCard({
                 />
               )}
 
-              {/* Hover border overlay - rendered ON TOP of image */}
+              {/* Border overlay - subtle default, stronger on hover */}
               <div
                 className="absolute inset-0 pointer-events-none"
                 style={{
                   borderRadius: '20px',
-                  boxShadow: isHovered ? 'inset 0 0 0 1px rgba(9, 14, 21, 0.2)' : 'none',
+                  boxShadow: isHovered ? 'inset 0 0 0 1px rgba(9, 14, 21, 0.2)' : 'inset 0 0 0 1px rgba(9, 14, 21, 0.08)',
                   transition: 'box-shadow 0.15s ease-out',
                   zIndex: 5,
                 }}
@@ -360,32 +286,30 @@ export function ProductCard({
           )}
 
           {/* Details - Figma: padding 8px */}
-          {/* With description: 8px gap between (title+desc) and price. Without: 4px gap */}
-          {/* No description: fixed 82px (2-line title + price fits). With description: grows naturally */}
           <div
             className="flex flex-col"
             style={{
               padding: '8px',
-              gap: hasDescription ? '8px' : '4px',
-              ...(!hasDescription ? { height: '82px' } : {}),
+              gap: aiReasoningMode ? '4px' : (hasDescription ? '8px' : '4px'),
+              ...(!aiReasoningMode && !hasDescription ? { height: '82px' } : {}),
             }}
           >
-            {/* Title + Description block */}
+            {/* Title + Description block (or AI reasoning replacing title) */}
             <div className="flex flex-col" style={{ gap: '2px' }}>
               {config.showTitle && (
                 <p
-                  className={hasDescription ? 'truncate' : 'line-clamp-2'}
+                  className={aiReasoningMode ? 'line-clamp-3' : (hasDescription ? 'truncate' : 'line-clamp-2')}
                   style={{
                     fontSize: '14px',
                     fontWeight: 400,
-                    lineHeight: '1.5',
+                    lineHeight: aiReasoningMode ? '1.3' : '1.5',
                     color: '#14161a',
                   }}
                 >
-                  {product.name}
+                  {aiReasoningMode ? aiReasoningText : product.name}
                 </p>
               )}
-              {hasDescription && (
+              {!aiReasoningMode && hasDescription && (
                 <p
                   className="line-clamp-2"
                   style={{
@@ -400,7 +324,7 @@ export function ProductCard({
               )}
             </div>
 
-            {/* Price + Rating row - sticks directly below title/description */}
+            {/* Price + Rating row */}
             <div className="flex items-center gap-2">
               {config.showPrice && (
                 <span
@@ -415,7 +339,7 @@ export function ProductCard({
                 </span>
               )}
 
-              {config.showRating && (
+              {!aiReasoningMode && config.showRating && (
                 <div className="flex items-center gap-1">
                   <div className="flex items-center gap-0.5">
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -637,28 +561,27 @@ export function ProductCard({
 
       {/* Content - Figma: px-16, pt-14, pb-16 */}
       <div style={{ padding: '14px 16px 16px 16px' }}>
-        {/* gap-12px between description and rating, gap-4px without description */}
         <div 
           className="flex flex-col"
-          style={{ gap: config.showDescription ? '12px' : '4px' }}
+          style={{ gap: aiReasoningMode ? '4px' : (config.showDescription ? '12px' : '4px') }}
         >
-          {/* Title + Description block - Figma: gap-2px */}
+          {/* Title + Description block (or AI reasoning replacing title) */}
           <div className="flex flex-col" style={{ gap: '2px' }}>
             {config.showTitle && (
               <h3 
-                className="truncate"
+                className={aiReasoningMode ? 'line-clamp-3' : 'truncate'}
                 style={{ 
                   fontSize: '14px', 
-                  fontWeight: 600, 
-                  lineHeight: '1.5', 
+                  fontWeight: aiReasoningMode ? 400 : 600,
+                  lineHeight: aiReasoningMode ? '1.3' : '1.5', 
                   color: '#14161a',
                 }}
               >
-                {product.name}
+                {aiReasoningMode ? aiReasoningText : product.name}
               </h3>
             )}
 
-            {config.showDescription && (
+            {!aiReasoningMode && config.showDescription && (
               <p 
                 className="line-clamp-2"
                 style={{ 
@@ -666,7 +589,7 @@ export function ProductCard({
                   fontWeight: 400,
                   lineHeight: '16px', 
                   color: '#6c6f74',
-                  minHeight: '32px', // 2 lines (16px * 2) to keep ratings aligned
+                  minHeight: '32px',
                 }}
               >
                 {product.description}
@@ -674,8 +597,8 @@ export function ProductCard({
             )}
           </div>
 
-          {/* Rating - 16px height container, 12px star */}
-          {config.showRating && (
+          {/* Rating row (normal mode only — AI reasoning doesn't need price here since it's on the image badge) */}
+          {!aiReasoningMode && config.showRating && (
             <div className="flex items-center gap-1" style={{ height: '16px' }}>
               <div className="flex items-center gap-0.5">
                 <img src="/icons/star-full.svg" alt="" className="w-3 h-3" />
@@ -689,7 +612,6 @@ export function ProductCard({
             </div>
           )}
         </div>
-
       </div>
     </div>
   );
