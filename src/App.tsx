@@ -85,7 +85,7 @@ function loadConversation(): Message[] | null {
 function App() {
   const [messengerState, setMessengerState] = useState<MessengerState>('default');
   const [cardLayout, setCardLayout] = useState<CardLayout>('grid');
-  const [cardDesign, setCardDesign] = useState<CardDesign>('current');
+  const [cardDesign, setCardDesign] = useState<CardDesign>('borderless');
   const [imageRatio, setImageRatio] = useState<ImageRatio>('portrait');
   const [selectedStore, setSelectedStore] = useState<ImageRatio>('portrait');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -96,7 +96,7 @@ function App() {
     showPrice: true,
     showRating: false,
     showDescription: true,
-    showAddToCart: false,
+    showAddToCart: true,
     showViewDetailsLarge: false,
   });
   const [allProducts, setAllProducts] = useState<Product[]>([]);
