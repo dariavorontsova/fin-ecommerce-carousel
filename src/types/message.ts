@@ -55,8 +55,14 @@ export interface AgentMessage extends BaseMessage {
   latencyMs?: number;
 }
 
+// Cart confirmation message (injected when user adds an item)
+export interface CartMessage extends BaseMessage {
+  role: 'cart';
+  product: Product;       // The item just added
+}
+
 // Union type for all messages
-export type Message = UserMessage | AgentMessage;
+export type Message = UserMessage | AgentMessage | CartMessage;
 
 // Conversation state
 export interface Conversation {
@@ -91,5 +97,15 @@ export function createAgentMessage(
     content,
     timestamp: new Date(),
     ...options,
+  };
+}
+
+// Helper to create a cart confirmation message
+export function createCartMessage(product: Product): CartMessage {
+  return {
+    id: crypto.randomUUID(),
+    role: 'cart',
+    timestamp: new Date(),
+    product,
   };
 }

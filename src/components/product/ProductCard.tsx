@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Product, CardConfig, DEFAULT_CARD_CONFIG, CardDesign, ImageRatio, IMAGE_RATIO_VALUES } from '../../types/product';
+import { useCart } from '../../contexts/CartContext';
 import { ImageGallery } from './ImageGallery';
 
 interface ProductCardProps {
@@ -102,7 +103,7 @@ export function ProductCard({
               />
               {/* Add to Cart CTA - anchored bottom-right, expands left on button hover */}
               {config.showAddToCart && (
-                <AddToCartButton productId={product.id} />
+                <AddToCartButton product={product} />
               )}
             </div>
           ) : (
@@ -117,7 +118,7 @@ export function ProductCard({
               )}
               {/* Add to Cart CTA - anchored bottom-right, expands left on button hover */}
               {config.showAddToCart && (
-                <AddToCartButton productId={product.id} />
+                <AddToCartButton product={product} />
               )}
             </div>
           )}
@@ -247,7 +248,7 @@ export function ProductCard({
               />
               {/* Add to Cart CTA */}
               {config.showAddToCart && (
-                <AddToCartButton productId={product.id} />
+                <AddToCartButton product={product} />
               )}
             </div>
           ) : (
@@ -280,7 +281,7 @@ export function ProductCard({
 
               {/* Add to Cart CTA */}
               {config.showAddToCart && (
-                <AddToCartButton productId={product.id} />
+                <AddToCartButton product={product} />
               )}
             </div>
           )}
@@ -499,7 +500,7 @@ export function ProductCard({
             </div>
           )}
           {config.showAddToCart && (
-            <AddToCartButton productId={product.id} />
+            <AddToCartButton product={product} />
           )}
         </div>
       ) : (
@@ -554,7 +555,7 @@ export function ProductCard({
           )}
 
           {config.showAddToCart && (
-            <AddToCartButton productId={product.id} />
+            <AddToCartButton product={product} />
           )}
         </div>
       )}
@@ -681,11 +682,14 @@ function generateMockReasoning(product: Product): string {
 // Add to Cart button with expand-on-hover animation
 // Figma: 48w x 40h default, expands left to show label on hover
 // Badge: 16x16 count indicator at top-right corner
-function AddToCartButton({ productId }: { productId: string }) {
+function AddToCartButton({ product }: { product: Product }) {
+  const { addToCart, items } = useCart();
   const [isHovered, setIsHovered] = React.useState(false);
-  const [count, setCount] = React.useState(0);
   const [justAdded, setJustAdded] = React.useState(false);
   const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Get this product's quantity from global cart
+  const count = items.find(item => item.product.id === product.id)?.quantity ?? 0;
 
   const showExpanded = isHovered || justAdded;
   const labelText = justAdded ? 'Added' : 'Add to cart';
@@ -713,7 +717,8 @@ function AddToCartButton({ productId }: { productId: string }) {
       onMouseLeave={() => setIsHovered(false)}
       onClick={(e) => {
         e.stopPropagation();
-        setCount(prev => prev + 1);
+        addToCart(product);
+        window.dispatchEvent(new CustomEvent('cart-item-added', { detail: { product } }));
         setJustAdded(true);
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         timeoutRef.current = setTimeout(() => setJustAdded(false), 1500);

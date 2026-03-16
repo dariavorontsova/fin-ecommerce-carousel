@@ -3,6 +3,7 @@ import { Message, UserMessage, AgentMessage } from '../../types/message';
 import { CardConfig, CardLayout, CardDesign, ImageRatio, MessengerState } from '../../types/product';
 import { ProductCard } from '../product/ProductCard';
 import { CarouselLayout, ListLayout, GridLayout } from '../layouts';
+import { CartConfirmationBlock } from './CartConfirmationBlock';
 
 interface MessageBubbleProps {
   message: Message;
@@ -17,6 +18,9 @@ interface MessageBubbleProps {
 export function MessageBubble({ message, cardConfig, layout, cardDesign = 'current', imageRatio = 'portrait', messengerState = 'default', aiReasoningMode = false }: MessageBubbleProps) {
   if (message.role === 'user') {
     return <UserBubble message={message} messengerState={messengerState} />;
+  }
+  if (message.role === 'cart') {
+    return <CartConfirmationBlock message={message} />;
   }
   return <AgentBubble message={message} cardConfig={cardConfig} layout={layout} cardDesign={cardDesign} imageRatio={imageRatio} messengerState={messengerState} aiReasoningMode={aiReasoningMode} />;
 }

@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Messenger } from './components/messenger';
 import { CardConfig, DEFAULT_CARD_CONFIG, CardLayout, MessengerState, Product, CardDesign, ImageRatio } from './types/product';
-import { Message, createUserMessage, createAgentMessage, LLMDecision } from './types/message';
+import { Message, createUserMessage, createAgentMessage, createCartMessage, LLMDecision } from './types/message';
 import { getAllProducts } from './data/products';
 import { getDemoProductsByRatio } from './data/catalog';
 import {
@@ -61,7 +61,9 @@ function createDemoConversation(products: Product[]): Message[] {
 // Helper to save conversation to localStorage
 function saveConversation(messages: Message[]) {
   try {
-    localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify(messages));
+    // Skip cart messages — cart state is ephemeral and doesn't restore on reload
+    const persistable = messages.filter(m => m.role !== 'cart');
+    localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify(persistable));
   } catch (e) {
     console.warn('Failed to save conversation:', e);
   }
@@ -156,6 +158,16 @@ function App() {
     }
   }, [messages, productsLoading]);
 
+  // Listen for add-to-cart events and inject cart confirmation messages
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { product } = (e as CustomEvent).detail;
+      setMessages(prev => [...prev, createCartMessage(product)]);
+    };
+    window.addEventListener('cart-item-added', handler);
+    return () => window.removeEventListener('cart-item-added', handler);
+  }, []);
+
   // Handle sending a new message - uses LLM if configured, otherwise mock
   const handleSend = useCallback(async (content: string) => {
     // Add user message
@@ -164,11 +176,13 @@ function App() {
     setIsLoading(true);
 
     try {
-      // Build conversation history from messages
-      const history: ConversationMessage[] = messages.map(m => ({
-        role: m.role === 'user' ? 'user' : 'assistant',
-        content: m.content,
-      }));
+      // Build conversation history from messages (skip cart confirmations)
+      const history: ConversationMessage[] = messages
+        .filter(m => m.role !== 'cart')
+        .map(m => ({
+          role: m.role === 'user' ? 'user' as const : 'assistant' as const,
+          content: (m as { content: string }).content,
+        }));
 
       let response: FinResponse;
 
