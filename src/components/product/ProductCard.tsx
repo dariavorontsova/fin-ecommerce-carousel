@@ -680,8 +680,17 @@ function generateMockReasoning(product: Product): string {
 
 // Add to Cart button with expand-on-hover animation
 // Figma: 48w x 40h default, expands left to show label on hover
+// Badge: 16x16 count indicator at top-right corner
 function AddToCartButton({ productId }: { productId: string }) {
   const [isHovered, setIsHovered] = React.useState(false);
+  const [count, setCount] = React.useState(0);
+  const [justAdded, setJustAdded] = React.useState(false);
+  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showExpanded = isHovered || justAdded;
+  const labelText = justAdded ? 'Added' : 'Add to cart';
+  // Explicit pixel widths so framer-motion can spring between them
+  const labelWidth = showExpanded ? (justAdded ? 46 : 85) : 0;
 
   return (
     <motion.button
@@ -693,34 +702,67 @@ function AddToCartButton({ productId }: { productId: string }) {
         backdropFilter: 'blur(50px)',
         boxShadow: '0px 1px 3px 0px rgba(9, 14, 21, 0.2)',
         padding: '8px 12px',
-        overflow: 'hidden',
+        overflow: 'visible',
         border: 'none',
         outline: 'none',
         zIndex: 4,
       }}
+      whileTap={{ scale: 0.97, backgroundColor: '#f2f2f2' }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={(e) => {
         e.stopPropagation();
-        console.log('Add to cart:', productId);
+        setCount(prev => prev + 1);
+        setJustAdded(true);
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => setJustAdded(false), 1500);
       }}
     >
-      <motion.div
+      {/* Count badge */}
+      {count > 0 && (
+        <motion.div
+          key={count}
+          initial={{ scale: 0.8 }}
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring', stiffness: 600, damping: 28 }}
+          style={{
+            position: 'absolute',
+            top: '-2px',
+            right: '-2px',
+            width: '16px',
+            height: '16px',
+            borderRadius: '9999px',
+            backgroundColor: '#090e15',
+            color: 'white',
+            fontSize: '10px',
+            fontWeight: 700,
+            lineHeight: '16px',
+            textAlign: 'center',
+            pointerEvents: 'none',
+            zIndex: 5,
+          }}
+        >
+          {count}
+        </motion.div>
+      )}
+
+      <div
         className="flex items-center"
-        style={{ gap: '8px' }}
+        style={{ overflow: 'hidden' }}
       >
-        {/* Label - to the left of icon, clips when collapsed */}
+        {/* Label — width + marginRight collapse together so no ghost gap in resting state */}
         <motion.span
           initial={false}
           animate={{
-            width: isHovered ? 'auto' : 0,
-            opacity: isHovered ? 1 : 0,
-            marginRight: isHovered ? 0 : -8,
+            width: labelWidth,
+            marginRight: showExpanded ? 8 : 0,
+            opacity: showExpanded ? 1 : 0,
           }}
           transition={{
-            type: 'spring',
-            stiffness: 400,
-            damping: 30,
+            width: { type: 'spring', stiffness: 400, damping: 28 },
+            marginRight: { type: 'spring', stiffness: 400, damping: 28 },
+            opacity: { duration: 0.15, ease: 'easeInOut' },
           }}
           style={{
             fontSize: '14px',
@@ -732,13 +774,14 @@ function AddToCartButton({ productId }: { productId: string }) {
             display: 'inline-block',
           }}
         >
-          Add to cart
+          {labelText}
         </motion.span>
-        {/* Icon - stays in place on the right */}
+
+        {/* Icon */}
         <div className="shrink-0 w-[24px] h-[24px]">
           <img src="/icons/add-to-card.svg" alt="Add to cart" width="24" height="24" />
         </div>
-      </motion.div>
+      </div>
     </motion.button>
   );
 }
