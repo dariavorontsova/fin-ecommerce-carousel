@@ -13,13 +13,17 @@ interface MessageBubbleProps {
   imageRatio?: ImageRatio;
   messengerState?: MessengerState;
   aiReasoningMode?: boolean;
+  isLatestCartMessage?: boolean;
 }
 
-export function MessageBubble({ message, cardConfig, layout, cardDesign = 'current', imageRatio = 'portrait', messengerState = 'default', aiReasoningMode = false }: MessageBubbleProps) {
+export function MessageBubble({ message, cardConfig, layout, cardDesign = 'current', imageRatio = 'portrait', messengerState = 'default', aiReasoningMode = false, isLatestCartMessage = false }: MessageBubbleProps) {
   if (message.role === 'user') {
     return <UserBubble message={message} messengerState={messengerState} />;
   }
   if (message.role === 'cart') {
+    if (!isLatestCartMessage) {
+      return <CollapsedCartMessage productName={message.product.name} />;
+    }
     return <CartConfirmationBlock message={message} />;
   }
   return <AgentBubble message={message} cardConfig={cardConfig} layout={layout} cardDesign={cardDesign} imageRatio={imageRatio} messengerState={messengerState} aiReasoningMode={aiReasoningMode} />;
@@ -214,4 +218,27 @@ function ProductLayout({
     default:
       return <CarouselLayout>{cards}</CarouselLayout>;
   }
+}
+
+// Collapsed cart message — replaces older cart confirmations with a subtle text line
+function CollapsedCartMessage({ productName }: { productName: string }) {
+  return (
+    <div
+      className="flex items-center gap-2"
+      style={{ padding: '4px 0' }}
+    >
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path
+          d="M3.5 7L6 9.5L10.5 4.5"
+          stroke="#6c6f74"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <span style={{ fontSize: '14px', color: '#6c6f74', lineHeight: '1.5' }}>
+        {productName} added to cart
+      </span>
+    </div>
+  );
 }

@@ -158,11 +158,15 @@ function App() {
     }
   }, [messages, productsLoading]);
 
-  // Listen for add-to-cart events and inject cart confirmation messages
+  // Listen for add-to-cart events and inject agent response + cart confirmation
   useEffect(() => {
     const handler = (e: Event) => {
       const { product } = (e as CustomEvent).detail;
-      setMessages(prev => [...prev, createCartMessage(product)]);
+      const agentMsg = createAgentMessage(
+        `I've added the ${product.name} to your cart. Let me know if you need anything else or are ready to check out!`
+      );
+      const cartMsg = createCartMessage(product);
+      setMessages(prev => [...prev, agentMsg, cartMsg]);
     };
     window.addEventListener('cart-item-added', handler);
     return () => window.removeEventListener('cart-item-added', handler);

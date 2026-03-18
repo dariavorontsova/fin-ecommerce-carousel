@@ -1,20 +1,27 @@
 import { motion } from 'framer-motion';
 import { CartMessage } from '../../types/message';
-import { useCart } from '../../contexts/CartContext';
+import { useCart, CartItem } from '../../contexts/CartContext';
 
 interface CartConfirmationBlockProps {
   message: CartMessage;
 }
 
 export function CartConfirmationBlock({ message }: CartConfirmationBlockProps) {
-  const { totalItems, totalPrice } = useCart();
-  const { product } = message;
+  const { items, totalItems, totalPrice } = useCart();
 
-  // Format price
+  // Use cart items if available, otherwise fall back to the single message product
+  const cartItems: CartItem[] = items.length > 0
+    ? items
+    : [{ product: message.product, quantity: 1 }];
+
+  const hasMultipleItems = totalItems > 1;
+
+  // Format price using the first available currency
+  const currency = cartItems[0]?.product.currency || 'USD';
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: product.currency,
+      currency,
       minimumFractionDigits: price % 1 === 0 ? 0 : 2,
       maximumFractionDigits: 2,
     }).format(price);
@@ -26,19 +33,104 @@ export function CartConfirmationBlock({ message }: CartConfirmationBlockProps) {
       transition={{ duration: 0.3, ease: 'easeOut' }}
       style={{
         borderRadius: '20px',
-        border: '1px solid rgba(9, 14, 21, 0.08)',
+        border: '1px solid rgba(9, 14, 21, 0.1)',
+        backgroundColor: 'rgba(255, 255, 255, 0.7)',
         overflow: 'hidden',
       }}
     >
-      {/* Added item row */}
+      {/* Item rows */}
+      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {cartItems.map((item) => (
+          <CartItemRow
+            key={item.product.id}
+            item={item}
+            formatPrice={formatPrice}
+          />
+        ))}
+      </div>
+
+      {/* Divider */}
+      <div style={{ margin: '0 16px', height: '1px', backgroundColor: 'rgba(9, 14, 21, 0.1)', borderRadius: '8px' }} />
+
+      {/* Cart summary + CTA */}
       <div
-        className="flex items-center gap-3"
-        style={{ padding: '12px 16px', backgroundColor: '#fafafa' }}
+        className="flex items-center justify-between"
+        style={{ padding: '16px' }}
       >
-        {/* Thumbnail */}
+        <div>
+          <p style={{ fontSize: '14px', fontWeight: 400, lineHeight: '1.5', color: '#000' }}>
+            {totalItems} {totalItems === 1 ? 'item' : 'items'} in cart
+          </p>
+          {hasMultipleItems && (
+            <p style={{ fontSize: '13px', fontWeight: 400, lineHeight: '1.5', color: '#a0a2a6' }}>
+              Subtotal: {formatPrice(totalPrice)}
+            </p>
+          )}
+        </div>
+
+        <button
+          className="cursor-pointer"
+          style={{
+            height: '36px',
+            padding: '8px 16px',
+            borderRadius: '9999px',
+            backgroundColor: '#090e15',
+            color: '#fafafa',
+            fontSize: '14px',
+            fontWeight: 600,
+            lineHeight: '1.5',
+            border: 'none',
+            outline: 'none',
+            whiteSpace: 'nowrap',
+          }}
+          onClick={() => {
+            // Placeholder — will wire to checkout flow later
+          }}
+        >
+          Continue to checkout
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+/** Build subtitle from subcategory + first variant */
+function buildSubtitle(product: CartItem['product']): string {
+  const parts: string[] = [];
+
+  // Capitalize subcategory
+  if (product.subcategory) {
+    const sub = product.subcategory;
+    parts.push(sub.charAt(0).toUpperCase() + sub.slice(1));
+  }
+
+  // First variant option (e.g. "Size M", "Black")
+  if (product.variants && product.variants.length > 0) {
+    const v = product.variants[0];
+    const label = v.type.charAt(0).toUpperCase() + v.type.slice(1);
+    parts.push(`${label}: ${v.options[0]}`);
+  }
+
+  return parts.join(' \u00B7 ') || product.brand;
+}
+
+/** Single item row within the cart block */
+function CartItemRow({ item, formatPrice }: { item: CartItem; formatPrice: (p: number) => string }) {
+  const { product, quantity } = item;
+
+  return (
+    <div className="flex items-center gap-3">
+      {/* Thumbnail — 48x48 with quantity badge */}
+      <div style={{ position: 'relative', flexShrink: 0 }}>
         <div
-          className="shrink-0 overflow-hidden"
-          style={{ width: '40px', height: '40px', borderRadius: '10px' }}
+          className="overflow-hidden"
+          style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '10px',
+            backgroundColor: '#f5f2ed',
+            border: '1px solid rgba(9, 14, 21, 0.1)',
+          }}
         >
           <img
             src={product.image}
@@ -47,78 +139,59 @@ export function CartConfirmationBlock({ message }: CartConfirmationBlockProps) {
           />
         </div>
 
-        {/* Item info */}
-        <div className="flex-1 min-w-0">
+        {/* Quantity badge — only shown when quantity > 1 */}
+        {quantity > 1 && (
+          <div
+            className="flex items-center justify-center"
+            style={{
+              position: 'absolute',
+              top: '-5px',
+              right: '-5px',
+              width: '16px',
+              height: '16px',
+              borderRadius: '9999px',
+              backgroundColor: '#090e15',
+              color: 'white',
+              fontSize: '10px',
+              fontWeight: 700,
+              lineHeight: '16px',
+              textAlign: 'center',
+              pointerEvents: 'none',
+              boxShadow: '0 0 0 2px white',
+            }}
+          >
+            {quantity}
+          </div>
+        )}
+      </div>
+
+      {/* Item details + price */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between">
           <p
             className="truncate"
-            style={{ fontSize: '13px', fontWeight: 600, lineHeight: '1.4', color: '#14161a' }}
+            style={{ fontSize: '14px', fontWeight: 400, lineHeight: '1.5', color: '#000' }}
           >
             {product.name}
           </p>
-          <p style={{ fontSize: '12px', fontWeight: 400, lineHeight: '1.4', color: '#6c6f74' }}>
-            {formatPrice(product.price)} &middot; Added to cart
-          </p>
-        </div>
-
-        {/* Checkmark */}
-        <div
-          className="shrink-0 flex items-center justify-center"
-          style={{
-            width: '24px',
-            height: '24px',
-            borderRadius: '9999px',
-            backgroundColor: '#090e15',
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path
-              d="M3.5 7L6 9.5L10.5 4.5"
-              stroke="white"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </div>
-      </div>
-
-      {/* Cart summary + CTA */}
-      <div
-        className="flex items-center justify-between"
-        style={{
-          padding: '12px 16px',
-          borderTop: '1px solid rgba(9, 14, 21, 0.06)',
-        }}
-      >
-        <div>
-          <p style={{ fontSize: '13px', fontWeight: 600, lineHeight: '1.4', color: '#14161a' }}>
-            {totalItems} {totalItems === 1 ? 'item' : 'items'} in cart
-          </p>
-          <p style={{ fontSize: '12px', fontWeight: 400, lineHeight: '1.4', color: '#6c6f74' }}>
-            Total: {formatPrice(totalPrice)}
-          </p>
-        </div>
-
-        <button
-          className="cursor-pointer"
-          style={{
-            padding: '8px 20px',
-            borderRadius: '9999px',
-            backgroundColor: '#090e15',
-            color: 'white',
-            fontSize: '13px',
+          <p style={{
+            fontSize: '14px',
             fontWeight: 600,
-            lineHeight: '1.4',
-            border: 'none',
-            outline: 'none',
-          }}
-          onClick={() => {
-            // Placeholder — will wire to checkout flow later
-          }}
-        >
-          Checkout
-        </button>
+            lineHeight: '1.5',
+            color: '#14161a',
+            textAlign: 'right',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+            marginLeft: '8px',
+          }}>
+            {formatPrice(product.price * quantity)}
+          </p>
+        </div>
+        {/* Subcategory · Variant */}
+        <p style={{ fontSize: '13px', fontWeight: 400, lineHeight: '1.5', color: '#a0a2a6' }}>
+          {buildSubtitle(product)}
+        </p>
       </div>
-    </motion.div>
+    </div>
   );
 }

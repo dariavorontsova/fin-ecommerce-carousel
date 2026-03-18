@@ -73,18 +73,23 @@ export function MessengerThread({
           <EmptyState />
         ) : (
           <>
-            {messages.map((message) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                cardConfig={cardConfig}
-                layout={layout}
-                cardDesign={cardDesign}
-                imageRatio={imageRatio}
-                messengerState={messengerState}
-                aiReasoningMode={aiReasoningMode}
-              />
-            ))}
+            {(() => {
+              // Find the last cart message so only it renders as a full card
+              const lastCartId = [...messages].reverse().find(m => m.role === 'cart')?.id;
+              return messages.map((message) => (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  cardConfig={cardConfig}
+                  layout={layout}
+                  cardDesign={cardDesign}
+                  imageRatio={imageRatio}
+                  messengerState={messengerState}
+                  aiReasoningMode={aiReasoningMode}
+                  isLatestCartMessage={message.role === 'cart' && message.id === lastCartId}
+                />
+              ));
+            })()}
             {isLoading && <TypingIndicator />}
           </>
         )}
