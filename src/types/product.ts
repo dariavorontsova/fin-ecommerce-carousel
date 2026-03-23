@@ -35,10 +35,30 @@ export interface Product {
   
   // Category-specific attributes (not all products have all)
   attributes?: ProductAttributes;
-  
+
   // AI-generated reasoning (populated by LLM based on user query context)
-  // Example: "Modern iconic design that would complement your workspace. Great reviews and energy efficient."
   aiReasoning?: string;
+
+  // Shared catalog fields — used by the website and for richer product detail
+  department?: string;          // e.g. 'activewear', 'footwear', 'home-kitchen'
+  subtitle?: string;            // secondary line (e.g. "With Stainless Steel Knob")
+  discount?: number;            // percentage off (e.g. 30 for 30%)
+  colors?: Array<{ value: string; label: string; hex: string }>;
+  sizes?: Array<{ value: string; label: string; price: number; originalPrice?: number | null; discount?: number | null }>;
+}
+
+// Department definitions for shared catalog
+export type DepartmentId = 'activewear' | 'footwear' | 'home-kitchen' | 'furniture';
+
+export interface Department {
+  id: DepartmentId;
+  name: string;
+  description: string;
+  image: string;
+  productCount: number;
+  imageRatio: ImageRatio;
+  category: ProductCategory;
+  brand?: string;
 }
 
 export interface ProductVariant {

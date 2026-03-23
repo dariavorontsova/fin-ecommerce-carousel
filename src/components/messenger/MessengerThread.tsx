@@ -1,8 +1,9 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Message } from '../../types/message';
 import { CardConfig, CardLayout, DEFAULT_CARD_CONFIG, CardDesign, ImageRatio, MessengerState } from '../../types/product';
 import { MessageBubble } from './MessageBubble';
+import { usePinning } from '../../contexts/PinningContext';
 
 interface MessengerThreadProps {
   messages: Message[];
@@ -44,6 +45,13 @@ export function MessengerThread({
   const threadEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const prevFirstMessageId = useRef<string | null>(null);
+  const { registerScrollContainer } = usePinning();
+
+  // Register scroll container for IntersectionObserver-based pinning
+  const scrollRefCallback = useCallback((el: HTMLDivElement | null) => {
+    scrollContainerRef.current = el;
+    registerScrollContainer(el);
+  }, [registerScrollContainer]);
 
   // Detect full conversation reset vs. new message appended
   useEffect(() => {
@@ -66,7 +74,7 @@ export function MessengerThread({
   const isEmpty = messages.length === 0;
 
   return (
-    <div ref={scrollContainerRef} className="h-full overflow-y-auto messenger-scroll bg-white">
+    <div ref={scrollRefCallback} className="h-full overflow-y-auto messenger-scroll bg-white">
       {/* Figma: px-16px, gap-16px, pb-16px */}
       <div className="px-4 pt-4 pb-4 flex flex-col gap-4">
         {isEmpty ? (

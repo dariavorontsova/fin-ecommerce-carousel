@@ -1,6 +1,7 @@
 import { MessengerHeader } from './MessengerHeader';
 import { MessengerComposer } from './MessengerComposer';
 import { MessengerThread } from './MessengerThread';
+import { PinnedZone } from './PinnedZone';
 import { Message } from '../../types/message';
 import { CardConfig, CardLayout, DEFAULT_CARD_CONFIG, CardDesign, ImageRatio } from '../../types/product';
 
@@ -54,12 +55,14 @@ export function Messenger({
         boxShadow: '0px 5px 40px rgba(15, 15, 15, 0.16)',
       }}
     >
-      <MessengerHeader 
+      <MessengerHeader
         onBack={onBack}
         onMenu={onMenu}
         onClose={onClose}
       />
-      
+
+      <PinnedZone />
+
       <div className="relative flex-1 min-h-0">
         <MessengerThread
           messages={messages}
