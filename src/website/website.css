@@ -1,0 +1,76 @@
+/*
+ * MAISON E-Commerce Website — Scoped Styles
+ *
+ * This CSS is completely isolated from the messenger/Fin SDK styles.
+ * The website represents a "customer's product" — a standalone e-commerce site.
+ * The messenger is a third-party embed that sits on top.
+ *
+ * All CSS variables are scoped under .website-root so they don't leak
+ * into the messenger components. Shared shadcn/ui components (Button, Card, etc.)
+ * will pick up these variables when rendered inside the website, and the
+ * messenger's variables when rendered inside the messenger.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+.website-root {
+  /* Typography */
+  font-family: "Inter", system-ui, sans-serif;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /*
+   * shadcn/ui CSS variable overrides — MAISON website theme
+   * These only apply inside .website-root, keeping the messenger unaffected.
+   */
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 3.9%;
+  --primary: 240 5.9% 10%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 240 4.8% 95.9%;
+  --secondary-foreground: 240 5.9% 10%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --accent: 240 4.8% 95.9%;
+  --accent-foreground: 240 5.9% 10%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --ring: 240 5.9% 10%;
+  --radius: 0.5rem;
+
+  /* Website-specific colors (non-variable, used in inline styles) */
+  color: #1A1A1A;
+  background-color: #ffffff;
+}
+
+/* Reset border color inside website scope */
+.website-root *,
+.website-root *::before,
+.website-root *::after {
+  border-color: hsl(240 5.9% 90%);
+}
+
+/* Website scrollbar — clean, subtle */
+.website-root::-webkit-scrollbar {
+  width: 8px;
+}
+
+.website-root::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.website-root::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+
+.website-root::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}

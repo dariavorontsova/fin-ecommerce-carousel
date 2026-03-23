@@ -1,6 +1,8 @@
+import { useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { CartMessage } from '../../types/message';
 import { useCart, CartItem } from '../../contexts/CartContext';
+import { usePinning } from '../../contexts/PinningContext';
 
 interface CartConfirmationBlockProps {
   message: CartMessage;
@@ -8,6 +10,12 @@ interface CartConfirmationBlockProps {
 
 export function CartConfirmationBlock({ message }: CartConfirmationBlockProps) {
   const { items, totalItems, totalPrice } = useCart();
+  const { registerCartBlock } = usePinning();
+
+  // Register this element for IntersectionObserver pinning
+  const cartBlockRef = useCallback((el: HTMLDivElement | null) => {
+    registerCartBlock(el);
+  }, [registerCartBlock]);
 
   // Use cart items if available, otherwise fall back to the single message product
   const cartItems: CartItem[] = items.length > 0
@@ -28,6 +36,7 @@ export function CartConfirmationBlock({ message }: CartConfirmationBlockProps) {
 
   return (
     <motion.div
+      ref={cartBlockRef}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}

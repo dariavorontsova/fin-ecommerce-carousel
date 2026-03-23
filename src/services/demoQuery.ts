@@ -11,7 +11,7 @@
  */
 
 import { Product } from '../types/product';
-import { searchDemoCatalog, getDemoProductById } from '../data/catalog';
+import { searchCatalog, getProductById } from '../shared/catalog';
 import {
   FinResponse,
   LLMResponse,
@@ -28,7 +28,7 @@ const DEMO_SYSTEM_PROMPT = `You are Fin, a smart shopping assistant.
 
 ## Catalog
 
-You serve THREE stores depending on what the user asks about. Each query typically stays within ONE vertical:
+You serve FOUR departments depending on what the user asks about. Each query typically stays within ONE vertical:
 
 ### GYMSHARK — Tops & Tees (portrait images)
 gs-1: Power T-Shirt $36 (oversized, sweat-wicking, lifting)
@@ -54,7 +54,19 @@ tr-8: Adidas Spezial $100 (handball heritage, slim suede, terrace favourite)
 tr-9: New Balance 9060 $160 (futuristic, SBS cushioning, premium)
 tr-10: Nike Cortez $90 (original Nike runner, leather, since 1972)
 
-### KAVE HOME — Sofas (landscape images)
+### MAISON — Home & Kitchen (landscape images)
+prod-001: Cast Iron Shallow Casserole €192.50 (cast iron, slow-cooking, braising, roasting)
+prod-002: Cast Iron Round Dutch Oven €385 (soups, stews, roasts, bread)
+prod-005: Pour Over Coffee Maker €78 (ceramic, pour-over, coffee)
+prod-006: Cast Iron Teapot €125 (Japanese style, tea, elegant)
+prod-007: Electric Gooseneck Kettle €149 (temperature control, coffee, tea)
+prod-008: Ceramic Baking Dish €65 (oven-safe, casseroles, lasagna)
+prod-011: Wooden Cutting Board €55 (acacia wood, kitchen essential)
+prod-019: Coffee Grinder €189 (burr grinder, 40 settings, espresso)
+prod-025: Kitchen Utensil Set €42 (silicone, bamboo handles, 6-piece)
+prod-028: Digital Kitchen Scale €28 (precision, stainless steel, baking)
+
+### KAVE HOME — Furniture / Sofas (landscape images)
 sofa-1: Alba 3-Seater Sofa $2199 (bouclé, curved, feather-down)
 sofa-2: Harlow Modular Corner Sofa $3499 (L-shaped, chenille, modular)
 sofa-3: Oslo 2-Seater Sofa $1599 (compact, Scandi, walnut legs)
@@ -81,7 +93,7 @@ sofa-10: Luna Bouclé Sofa $2099 (curved, low profile, bouclé)
 
 ## Rules
 
-1. Stay within ONE vertical per response — don't mix sofas with trainers
+1. Stay within ONE vertical per response — don't mix kitchen items with trainers. Exception: cross-sell (e.g. "find matching shoes for this gym outfit")
 2. For broad category queries ("show me gym tees"), show 6-8 products
 3. For specific queries ("tell me about the 530"), show 1 product as single_card
 4. Keep responses SHORT — 2-3 sentences. Cards do the selling.
@@ -171,7 +183,7 @@ export async function queryFinDemo(
   let products: Product[] = [];
   if (demoResponse.show_products && demoResponse.product_ids.length > 0) {
     products = demoResponse.product_ids
-      .map(id => getDemoProductById(id))
+      .map(id => getProductById(id))
       .filter((p): p is Product => p !== undefined);
 
     // Attach card_reasons as aiReasoning
@@ -186,7 +198,7 @@ export async function queryFinDemo(
   // If LLM returned IDs we don't have, try local search as fallback
   if (demoResponse.show_products && products.length === 0) {
     console.warn('[DemoMode] No products resolved from LLM IDs, trying local search');
-    products = searchDemoCatalog(userMessage, 6);
+    products = searchCatalog(userMessage, 6);
   }
 
   const endTime = performance.now();
@@ -290,7 +302,7 @@ function localFallback(userMessage: string): DemoLLMResponse {
   }
 
   // Try local search
-  const results = searchDemoCatalog(userMessage, 6);
+  const results = searchCatalog(userMessage, 6);
   
   if (results.length > 0) {
     const brand = results[0].brand;
@@ -312,7 +324,7 @@ function localFallback(userMessage: string): DemoLLMResponse {
   // Nothing matched — clarify
   return {
     intent: 'clarify',
-    response_text: "I can help you find what you need! Are you looking for gym tops, trainers, or sofas?",
+    response_text: "I can help you find what you need! Are you looking for gym tops, trainers, kitchen essentials, or furniture?",
     show_products: false,
     product_ids: [],
     renderer: 'text_only',

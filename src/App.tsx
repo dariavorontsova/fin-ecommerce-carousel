@@ -3,7 +3,8 @@ import { Messenger } from './components/messenger';
 import { CardConfig, DEFAULT_CARD_CONFIG, CardLayout, MessengerState, Product, CardDesign, ImageRatio } from './types/product';
 import { Message, createUserMessage, createAgentMessage, createCartMessage, LLMDecision } from './types/message';
 import { getAllProducts } from './data/products';
-import { getDemoProductsByRatio } from './data/catalog';
+import { getProductsByRatio } from './shared/catalog';
+import { WebsiteShell } from './website/WebsiteShell';
 import {
   queryFinMock,
   queryFin,
@@ -122,6 +123,9 @@ function App() {
   // Page context: simulate which page user is on (affects query interpretation)
   const [pageContext] = useState<'home' | 'category' | 'product'>('home');
   const [viewingProduct] = useState<Product | null>(null);
+
+  // Admin panel visibility
+  const [panelOpen, setPanelOpen] = useState(false);
 
   // Load products and auto-load demo on mount
   useEffect(() => {
@@ -295,14 +299,14 @@ function App() {
 
   // Build a demo conversation for a given ratio/store
   const buildDemoMessages = (ratio: ImageRatio, layout: CardLayout): Message[] => {
-    const ratioProducts = getDemoProductsByRatio(ratio);
+    const ratioProducts = getProductsByRatio(ratio);
     const shuffled = [...ratioProducts].sort(() => Math.random() - 0.5);
     const productsToShow = shuffled.slice(0, 8);
     // Pick one product from the shown ones for the follow-up single card
     const featuredProduct = productsToShow[0];
 
     const storeMap = {
-      landscape: { query: 'Show me your sofas', brand: 'Kave Home', label: 'sofas' },
+      landscape: { query: 'Show me kitchen essentials', brand: 'MAISON', label: 'kitchen items' },
       square: { query: 'Show me some trainers', brand: '', label: 'trainers' },
       portrait: { query: 'Show me gym t-shirts', brand: 'Gymshark', label: 'tops' },
     };
@@ -333,15 +337,31 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-100">
-      {/* Left side: Config Panel */}
-      <div className="fixed left-0 top-0 bottom-0 w-80 bg-neutral-100 border-r border-neutral-200 overflow-y-auto">
-        <div className="p-6 space-y-5">
-          {/* Header + Demo Mode */}
-          <div className="flex items-center justify-between">
-            <h1 className="text-lg font-semibold text-neutral-900">
-              Fin E-commerce
-            </h1>
+    <div className="min-h-screen">
+      {/* E-commerce website — full viewport background layer */}
+      <WebsiteShell onTogglePanel={() => setPanelOpen(!panelOpen)} />
+
+      {/* Scrim overlay when panel is open */}
+      {panelOpen && (
+        <div
+          className="fixed inset-0 bg-black/20 z-[51] transition-opacity"
+          onClick={() => setPanelOpen(false)}
+        />
+      )}
+
+      {/* Sliding admin panel */}
+      <div
+        className="fixed top-0 bottom-0 z-[52] flex transition-transform duration-300 ease-in-out"
+        style={{ transform: panelOpen ? 'translateX(0)' : 'translateX(-100%)' }}
+      >
+        {/* Config Panel */}
+        <div className="w-80 bg-neutral-50 border-r border-neutral-200 overflow-y-auto">
+          <div className="p-6 space-y-5">
+            {/* Header + Demo Mode */}
+            <div className="flex items-center justify-between">
+              <h1 className="text-lg font-semibold text-neutral-900">
+                Fin E-commerce
+              </h1>
             <div className="flex items-center gap-2">
               <Label htmlFor="demoMode" className="text-xs text-neutral-500 cursor-pointer">
                 Demo
@@ -369,7 +389,7 @@ function App() {
                 <SelectContent>
                   <SelectItem value="portrait">Gymshark (Portrait)</SelectItem>
                   <SelectItem value="square">Trainer Store (Square)</SelectItem>
-                  <SelectItem value="landscape">Kave Home (Landscape)</SelectItem>
+                  <SelectItem value="landscape">Home & Kitchen (Landscape)</SelectItem>
                 </SelectContent>
               </Select>
               <button
@@ -511,8 +531,8 @@ function App() {
         </div>
       </div>
 
-      {/* Debug Panel - same style as config */}
-      <div className="fixed left-80 top-0 bottom-0 w-80 bg-neutral-100 border-r border-neutral-200 overflow-y-auto">
+      {/* Debug Panel */}
+      <div className="w-80 bg-neutral-50 border-r border-neutral-200 overflow-y-auto">
         <div className="p-6 space-y-6">
           <div>
             <h2 className="text-lg font-semibold text-neutral-900">LLM Decision Debug</h2>
@@ -655,9 +675,7 @@ function App() {
           )}
         </div>
       </div>
-
-      {/* Main content area placeholder */}
-      <div className="ml-[640px] min-h-screen bg-neutral-100" />
+      </div>{/* end sliding admin panel */}
 
       {/* Gradient backdrop behind messenger - creates depth effect */}
       <div 

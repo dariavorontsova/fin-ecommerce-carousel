@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Product, CardConfig, DEFAULT_CARD_CONFIG, CardDesign, ImageRatio, IMAGE_RATIO_VALUES } from '../../types/product';
 import { useCart } from '../../contexts/CartContext';
+import { usePinning } from '../../contexts/PinningContext';
 import { ImageGallery } from './ImageGallery';
 
 interface ProductCardProps {
@@ -84,6 +85,7 @@ export function ProductCard({
 
       return (
         <div
+          data-product-id={product.id}
           className={`bg-white overflow-clip cursor-pointer flex-shrink-0 transition-shadow ${widthClass}`}
           style={{
             border: '1px solid rgba(9, 14, 21, 0.1)',
@@ -218,6 +220,7 @@ export function ProductCard({
 
       return (
         <div
+          data-product-id={product.id}
           className={`cursor-pointer flex-shrink-0 flex flex-col ${widthClass}`}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
@@ -366,6 +369,7 @@ export function ProductCard({
   if (variant === 'list') {
     return (
       <div 
+        data-product-id={product.id}
         className="flex gap-3 bg-white cursor-pointer flex-shrink-0 transition-shadow"
         style={{
           padding: '12px',
@@ -462,6 +466,7 @@ export function ProductCard({
   
   return (
     <div 
+      data-product-id={product.id}
       className={`bg-white overflow-clip cursor-pointer transition-shadow ${widthClass}`}
       style={{
         border: '1px solid rgba(9, 14, 21, 0.1)',
@@ -684,6 +689,7 @@ function generateMockReasoning(product: Product): string {
 // Badge: 16x16 count indicator at top-right corner
 function AddToCartButton({ product }: { product: Product }) {
   const { addToCart, items } = useCart();
+  const { setFocusedProduct } = usePinning();
   const [isHovered, setIsHovered] = React.useState(false);
   const [justAdded, setJustAdded] = React.useState(false);
   const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -718,6 +724,7 @@ function AddToCartButton({ product }: { product: Product }) {
       onClick={(e) => {
         e.stopPropagation();
         addToCart(product);
+        setFocusedProduct(product);
         window.dispatchEvent(new CustomEvent('cart-item-added', { detail: { product } }));
         setJustAdded(true);
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
